@@ -1,0 +1,3 @@
+-- vedi migrazione "pulse_analisi_seguiti" applicata sul progetto desearq-suite:
+-- tabelle pulse.analisi e pulse.seguiti, viste public.pulse_analisi / pulse_seguiti,
+-- funzioni pulse_fn_analisi_set / seguiti_add / seguiti_list / seguiti_metriche (protette da segreto).

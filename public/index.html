@@ -248,25 +248,22 @@ svg text{font-family:'Outfit',sans-serif}
   <section class="view" id="v-mercato">
     <h2>Mercato e <em>concorrenti</em></h2>
     <p class="lead" id="mer-lead"></p>
+    <div class="card"><div class="m" id="mer-st" style="margin-bottom:10px"></div><button class="btn" id="mer-btn">Analizza il mercato ora</button> <button class="btn ghost" id="mon-btn">Leggi i profili approvati</button></div>
+    <div id="mer-sint"></div>
     <h3>Profili proposti dall'agente</h3>
     <div class="card" id="prop-list"></div>
     <h3>Profili monitorati</h3>
     <div class="card" id="appr-list"></div>
     <div id="schemi"></div>
-    <h3>Concorrenti diretti</h3>
-    <div class="card scroll"><table id="comp-tab"></table></div>
-    <p class="note">Nomi e numeri sono segnaposto. Nella versione reale l'agente legge profili pubblici e aggiorna la tabella ogni giorno.</p>
     <div class="grid g2">
       <div><h3>Formati che funzionano</h3><div class="card" id="formats"></div></div>
       <div><h3>Trend e hashtag</h3><div class="card" id="trends"></div></div>
     </div>
-    <h3>Orari migliori (Instagram)</h3>
-    <div class="card"><div class="hm" id="heat"></div></div>
   </section>
 
   <section class="view" id="v-idee">
     <h2>Le <em>idee</em> del momento</h2>
-    <p class="lead">Ordinate per potenziale virale, in base a mercato, concorrenti, storico dei tuoi post e a ciò che l'agente sa del profilo.</p>
+    <p class="lead">Nascono dall'analisi del mercato fatta con ricerche web reali e da ciò che l'agente sa del profilo.</p>
     <div class="card" id="idee-list"></div>
   </section>
 
@@ -280,13 +277,8 @@ svg text{font-family:'Outfit',sans-serif}
 
   <section class="view" id="v-ris">
     <h2>Cosa sta <em>funzionando</em></h2>
-    <p class="lead">I numeri delle ultime settimane e cosa cambia l'agente nella strategia.</p>
-    <div class="card"><svg id="chart" viewBox="0 0 640 230" width="100%" role="img" aria-label="Andamento follower ultime 8 settimane"></svg></div>
-    <h3>Post migliori</h3>
-    <div class="card" id="best"></div>
-    <h3>Cosa impara l'agente</h3>
-    <div class="agent" id="learn"></div>
-    <p class="note">Grafico e numeri sono dimostrativi.</p>
+    <p class="lead">Dati reali letti dal tuo account Instagram collegato.</p>
+    <div id="ris-body"></div>
   </section>
 
   <section class="view" id="v-prof">
@@ -476,7 +468,7 @@ function showLogin(){
   o.style.display='flex';
 }
 async function boot(){
-  try{await loadAll();var o=$('login');if(o)o.style.display='none';renderAll()}
+  try{await loadAll();await loadAnalisi();var o=$('login');if(o)o.style.display='none';renderAll()}
   catch(e){if(!AUTH)showLogin();else{toast('Errore nel caricamento dati');var o2=$('login');if(o2)o2.style.display='none'}}
 }
 
@@ -495,6 +487,69 @@ document.addEventListener('click',async function(e){
       var j=await r.json();if(!r.ok)throw new Error(j.error||'errore');location.href=j.url}
     catch(err){toast('Collegamento non riuscito: '+err.message);e.target.disabled=false}}
 });
+
+
+/* ---------- analisi reali ---------- */
+var AN={studio:{},lab:{}},SG={studio:[],lab:[]};
+async function loadAnalisi(){
+  try{
+    var a=await sbq('pulse_analisi?select=*');Object.keys(AN).forEach(function(k){AN[k]={}});
+    a.forEach(function(r){if(AN[r.profilo])AN[r.profilo][r.tipo]=r});
+    var g=await sbq('pulse_seguiti?select=*&order=aggiornato_il.desc');Object.keys(SG).forEach(function(k){SG[k]=[]});
+    g.forEach(function(r){if(SG[r.profilo])SG[r.profilo].push(r)});
+  }catch(e){}
+}
+function dt(t){try{return new Date(t).toLocaleString('it-IT',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}catch(e){return ''}}
+function waitAn(){var k=cur,n=0;var iv=setInterval(async function(){n++;await loadAnalisi();var m=AN[k].mercato;
+  if(k===cur){renderMercato();renderIdee();renderRis();renderAll()}
+  if((m&&m.stato!=='in_corso')||n>60)clearInterval(iv)},5000)}
+document.addEventListener('click',async function(e){
+  var id=e.target&&e.target.id;
+  if(id==='mer-btn'){e.target.disabled=true;
+    try{await fetch('/.netlify/functions/analisi-background',{method:'POST',headers:{'content-type':'application/json',Authorization:'Bearer '+AUTH.access},body:JSON.stringify({profilo:cur,brand:{name:PR[cur].name,lead:PR[cur].lead,tono:PR[cur].tono,target:PR[cur].target}})});
+      toast('Analisi avviata: ci vuole 1-2 minuti');await new Promise(function(r){setTimeout(r,1500)});await loadAnalisi();renderMercato();waitAn()}catch(err){toast('Non avviata: '+err.message)}
+    e.target.disabled=false}
+  if(id==='mon-btn'){e.target.disabled=true;
+    try{await fetch('/.netlify/functions/monitor-background',{method:'POST',headers:{'content-type':'application/json',Authorization:'Bearer '+AUTH.access},body:JSON.stringify({profilo:cur})});
+      toast('Leggo i profili… ricarica tra un minuto');setTimeout(async function(){await loadAnalisi();renderMercato();renderRis();renderAll()},45000)}catch(err){toast('Non avviata: '+err.message)}
+    e.target.disabled=false}
+});
+function pct(x){return (x==null?'—':x+'%')}
+function renderMercato(){
+  var P=PR[cur],A=AN[cur],m=A.mercato,T=A.top,list=SG[cur];
+  $('mer-lead').textContent='Analisi reale per '+P.name+': ricerca sul web e lettura di profili Instagram pubblici. L\'agente propone, tu approvi.';
+  $('mer-st').innerHTML=m?(m.stato==='in_corso'?'⏳ Analisi in corso…':m.stato==='errore'?'⚠️ Ultima analisi non riuscita: '+esc(m.errore||''):'Ultima analisi: '+dt(m.aggiornato_il)):'Nessuna analisi ancora. Premi il pulsante: cerco sul web trend, formati e profili del tuo settore.';
+  $('mer-sint').innerHTML=(m&&m.stato==='pronta'&&m.dati.sintesi)?'<h3>Sintesi</h3><div class="agent"><b>Agente · dal web</b>'+esc(m.dati.sintesi)+'</div>':'';
+  var prop=list.filter(function(x){return x.stato==='proposto'});
+  $('prop-list').innerHTML=prop.map(function(x){
+    return '<div class="row" style="flex-wrap:wrap"><span class="pf IG">IG</span><div class="grow"><div class="t">@'+esc(x.handle)+'</div><div class="m">'+esc(x.perche||'')+(x.fonte?' · <a href="'+esc(x.fonte)+'" target="_blank" rel="noopener">fonte</a>':'')+'</div></div><div style="width:100%;padding-left:46px"><button class="btn sm" data-a="y" data-i="'+x.id+'">Segui</button> <button class="btn sm ghost" data-a="n" data-i="'+x.id+'">Scarta</button></div></div>'}).join('')||'<div class="m">Nessun profilo proposto. Dopo l\'analisi compaiono qui.</div>';
+  document.querySelectorAll('#prop-list [data-a]').forEach(function(b){b.onclick=async function(){
+    var st=b.dataset.a==='y'?'approvato':'rifiutato';
+    try{await sbq('pulse_seguiti?id=eq.'+b.dataset.i,{method:'PATCH',body:{stato:st}});await loadAnalisi();renderMercato();toast(st==='approvato'?'Aggiunto al monitoraggio':'Scartato')}catch(e){toast('Errore: '+e.message)}}});
+  var ap=list.filter(function(x){return x.stato==='approvato'});
+  $('appr-list').innerHTML=ap.length?'<div class="scroll"><table><tr><th>Profilo</th><th>Follower</th><th>Post/sett.</th><th>Engag.</th><th>Formato forte</th></tr>'+ap.map(function(x){var q=x.metriche;
+    return '<tr><td>@'+esc(x.handle)+'</td>'+(q?'<td>'+q.followers.toLocaleString('it-IT')+'</td><td>'+q.post_a_settimana+'</td><td>'+pct(q.engagement_medio)+'</td><td>'+esc(q.per_tipo[0]?q.per_tipo[0].tipo:'—')+'</td>':'<td colspan="4" class="m">'+(x.errore?esc(x.errore):'non ancora letto')+'</td>')+'</tr>'}).join('')+'</table></div>':'<div class="m">Nessun profilo approvato. Approva quelli proposti qui sopra, poi premi "Leggi i profili approvati". Serve Instagram collegato e profili pubblici professionali.</div>';
+  var d=T&&T.stato==='pronta'?T.dati:null;
+  $('schemi').innerHTML=d&&d.letture?'<h3>Cosa li fa funzionare</h3><div class="agent"><b>Agente · dai post reali</b>'+esc(d.letture)+'</div>'+(d.top||[]).slice(0,5).map(function(p){return '<div class="row"><span class="pf IG">IG</span><div class="grow"><div class="t">@'+esc(p.handle)+' · '+esc(p.tipo)+' · '+pct(p.engagement)+'</div><div class="m">'+esc((p.caption||'').slice(0,120))+(p.url?' · <a href="'+esc(p.url)+'" target="_blank" rel="noopener">apri</a>':'')+'</div></div></div>'}).join(''):'';
+  var dm=m&&m.stato==='pronta'?m.dati:{};
+  $('formats').innerHTML=(dm.formati||[]).map(function(r){return '<div class="row"><div class="grow"><div class="t">'+esc(r.nome)+'</div><div class="m">'+esc(r.perche||'')+'</div></div></div>'}).join('')||'<div class="m">Dopo l\'analisi.</div>';
+  $('trends').innerHTML=(dm.trend||[]).map(function(r){return '<div class="row"><div class="grow"><div class="t">'+esc(r.titolo)+'</div><div class="m">'+esc(r.dettaglio||'')+(r.fonte?' · <a href="'+esc(r.fonte)+'" target="_blank" rel="noopener">fonte</a>':'')+'</div></div></div>'}).join('')+((dm.hashtag||[]).length?'<div class="m" style="margin-top:8px">'+dm.hashtag.map(esc).join(' ')+'</div>':'')||'<div class="m">Dopo l\'analisi.</div>';
+}
+function renderIdee(){
+  var m=AN[cur].mercato,id=(m&&m.stato==='pronta'&&m.dati.idee)||[];
+  $('idee-list').innerHTML=id.map(function(x,i){
+    return '<div class="row"><span class="pf '+(PF[x.piattaforma]?x.piattaforma:'IG')+'">'+(PF[x.piattaforma]?x.piattaforma:'IG')+'</span><div class="grow"><div class="t">'+esc(x.titolo)+'</div><div class="m">'+esc((x.formato||'')+' · '+(x.perche||''))+'</div></div><button class="btn sm" data-i="'+i+'">Crea</button></div>'}).join('')||'<div class="m">Nessuna idea ancora: avvia l\'analisi del mercato dalla sezione Mercato.</div>';
+  document.querySelectorAll('#idee-list button').forEach(function(b){b.onclick=function(){fromIdea(id[+b.dataset.i])}});
+}
+function renderRis(){
+  var r=AN[cur].miei,el=$('ris-body');
+  if(!r||r.stato!=='pronta'){el.innerHTML='<div class="card"><div class="m">'+(r&&r.errore?'Lettura non riuscita: '+esc(r.errore):'Nessun dato. Collega Instagram (sezione Profilo) e premi "Leggi i profili approvati" in Mercato: leggo anche i tuoi numeri.')+'</div></div>';return}
+  var d=r.dati;
+  el.innerHTML='<div class="grid g4"><div class="card kpi"><div class="n">'+d.followers.toLocaleString('it-IT')+'</div><div class="l">Follower @'+esc(d.username)+'</div></div><div class="card kpi"><div class="n">'+pct(d.engagement_medio)+'</div><div class="l">Engagement medio</div></div><div class="card kpi"><div class="n">'+d.post_analizzati+'</div><div class="l">Post analizzati</div></div><div class="card kpi"><div class="n">'+d.post_a_settimana+'</div><div class="l">Post a settimana</div></div></div>'+
+   '<h3>Per tipo di contenuto</h3><div class="card">'+(d.per_tipo.map(function(t){return '<div class="row"><div class="grow"><div class="t">'+esc(t.tipo)+'</div><div class="m">'+t.n+' post</div></div><span class="m">'+pct(t.engagement)+'</span></div>'}).join('')||'<div class="m">—</div>')+'</div>'+
+   '<h3>Giorni migliori</h3><div class="card">'+(d.per_giorno.slice(0,4).map(function(t){return '<div class="row"><div class="grow"><div class="t">'+esc(t.giorno)+'</div><div class="m">'+t.n+' post</div></div><span class="m">'+pct(t.engagement)+'</span></div>'}).join('')||'<div class="m">—</div>')+'</div>'+
+   '<h3>Post migliori</h3><div class="card">'+d.top.map(function(p){return '<div class="row"><span class="pf IG">IG</span><div class="grow"><div class="t">'+esc(p.tipo)+' · '+pct(p.engagement)+'</div><div class="m">'+esc(p.caption.slice(0,120))+(p.url?' · <a href="'+esc(p.url)+'" target="_blank" rel="noopener">apri</a>':'')+'</div></div></div>'}).join('')+'</div><p class="note">Aggiornato '+dt(r.aggiornato_il)+'. Fonte: Instagram.</p>';
+}
 
 /* ---------- navigazione ---------- */
 function go(v){
@@ -531,11 +586,12 @@ function renderAll(){
   var P=PR[cur],L=sorted();
   $('oggi-title').innerHTML='Ciao, '+esc(P.name.replace('Desearq ','Desearq <em>'))+'</em>';
   $('oggi-lead').textContent=P.lead;
-  animNum($('k-fol'),P.kpi[0]);animNum($('k-eng'),P.kpi[2]);
-  $('k-fold').textContent=P.kpi[1];$('k-engd').textContent=P.kpi[3];
+  var mi=(AN[cur].miei&&AN[cur].miei.stato==='pronta')?AN[cur].miei.dati:null;
+  $('k-fol').textContent=mi?mi.followers.toLocaleString('it-IT'):'—';$('k-fold').textContent=mi?'@'+mi.username:'collega Instagram';
+  $('k-eng').textContent=mi?mi.engagement_medio+'%':'—';$('k-engd').textContent=mi?'sugli ultimi '+mi.post_analizzati+' post':'dato reale dopo il collegamento';
   $('k-prog').textContent=L.filter(function(x){return x.st==='programmato'}).length;
   $('k-app').textContent=L.filter(function(x){return x.st==='da approvare'}).length;
-  $('advice').innerHTML='<b>Agente · '+esc(P.name)+'</b>'+esc(P.advice);
+  var me_=AN[cur].mercato;$('advice').innerHTML='<b>Agente · '+esc(P.name)+'</b>'+(me_&&me_.stato==='pronta'&&me_.dati.sintesi?esc(me_.dati.sintesi):'Non ho ancora analizzato il mercato. Vai su Mercato e premi "Analizza il mercato ora": cerco sul web trend e profili del tuo settore.');
   $('next-list').innerHTML=L.slice(0,4).map(function(x){
     return '<div class="row"><span class="pf '+x.p+'">'+x.p+'</span><div class="grow"><div class="t">'+esc(x.t)+'</div><div class="m">'+fd(x.d)+' · '+x.h+' · '+x.f+'</div></div>'+pillFor(x.st)+'</div>'}).join('')||'<div class="m">Nessuna uscita</div>';
   renderNewq();renderCal(L);renderMercato();renderIdee();renderRis();renderKn();renderCrea();
@@ -566,51 +622,7 @@ function renderCal(L){
     else{S.posts=S.posts.filter(function(y){return y.id!==id});sbq('pulse_contenuti?id=eq.'+id,{method:'DELETE'}).catch(function(){});toast('Rimosso')}
     renderAll()}});
 }
-function renderMercato(){
-  var P=PR[cur],S=ST[cur];
-  $('mer-lead').textContent='Analisi di profili grandi e concorrenti per '+P.name+'. L\'agente propone, tu approvi cosa seguire.';
-  $('prop-list').innerHTML=S.prop.map(function(x){
-    return '<div class="row" style="flex-wrap:wrap"><span class="pf '+x.pf+'">'+x.pf+'</span><div class="grow"><div class="t">'+esc(x.h)+' · '+esc(x.d)+'</div><div class="m">'+esc(x.why)+'</div></div><span class="pill ok">'+esc(x.st)+'</span><div style="width:100%;padding-left:46px"><button class="btn sm" data-a="y" data-i="'+x.id+'">Segui</button> <button class="btn sm ghost" data-a="n" data-i="'+x.id+'">Scarta</button></div></div>'}).join('')||'<div class="m">Nessuna nuova proposta. L\'agente ne cercherà altri.</div>';
-  document.querySelectorAll('#prop-list [data-a]').forEach(function(b){b.onclick=function(){
-    var S=ST[cur],x=S.prop.filter(function(y){return y.id===b.dataset.i})[0];
-    S.prop=S.prop.filter(function(y){return y!==x});
-    if(b.dataset.a==='y'){S.appr.push(x);toast('Profilo aggiunto al monitoraggio')}else toast('Scartato');
-    renderMercato();animBars()}});
-  $('appr-list').innerHTML=S.appr.map(function(x){
-    return '<div class="row"><span class="pf '+x.pf+'">'+x.pf+'</span><div class="grow"><div class="t">'+esc(x.h)+' · '+esc(x.d)+'</div><div class="m">Analisi giornaliera attiva</div></div><span class="pill pub">monitorato</span></div>'}).join('')||'<div class="m">Nessun profilo approvato: finché non approvi, l\'agente non analizza nessun account.</div>';
-  $('schemi').innerHTML=S.appr.length?'<h3>Cosa li fa funzionare</h3><div class="agent"><b>Agente · analisi dei top post</b>'+esc(P.schemi)+' Li adatto al tono '+esc(P.tono)+' di '+esc(P.name)+', senza copiare nessun contenuto.</div>':'';
-  $('comp-tab').innerHTML='<tr><th>Profilo</th><th>Follower</th><th>Post/sett.</th><th>Engag.</th><th>Formato forte</th></tr>'+P.comp.map(function(r){return '<tr><td>'+r[0]+'</td><td>'+r[1]+'</td><td>'+r[2]+'</td><td>'+r[3]+'</td><td>'+r[4]+'</td></tr>'}).join('');
-  $('formats').innerHTML=P.formats.map(function(r){return '<div class="row"><div class="grow"><div class="t">'+r[0]+'</div><div class="bar"><i data-w="'+r[1]+'"></i></div></div><span class="m">'+r[1]+'</span></div>'}).join('');
-  $('trends').innerHTML=P.trends.map(function(r){return '<div class="row"><div class="grow"><div class="t">'+r[0]+'</div><div class="m">'+r[1]+'</div></div><span class="pill'+(r[3]?' ok':'')+'">'+r[2]+'</span></div>'}).join('');
-}
-function renderIdee(){
-  $('idee-list').innerHTML=PR[cur].ideas.map(function(x,i){
-    return '<div class="row"><span class="pf '+x.p+'">'+x.p+'</span><div class="grow"><div class="t">'+esc(x.t)+'</div><div class="m">'+esc(x.w)+'</div></div><span class="score" title="Potenziale virale">'+x.s+'</span><button class="btn sm" data-i="'+i+'">Crea</button></div>'}).join('');
-  document.querySelectorAll('#idee-list button').forEach(function(b){b.onclick=function(){fromIdea(PR[cur].ideas[+b.dataset.i])}});
-}
-function renderRis(){
-  var P=PR[cur];
-  $('best').innerHTML=P.bestp.map(function(r){return '<div class="row"><span class="pf '+r[0]+'">'+r[0]+'</span><div class="grow"><div class="t">'+esc(r[1])+'</div><div class="m">'+esc(r[2])+'</div></div></div>'}).join('');
-  $('learn').innerHTML='<b>Agente · apprendimento</b>'+esc(P.learn);
-  var v=P.series,Wd=640,H=230,pl=46,pb=30,pt=18,pr=16;
-  var mn=Math.floor(Math.min.apply(null,v)/100)*100-100,mx=Math.ceil(Math.max.apply(null,v)/100)*100+100;
-  var x=function(i){return pl+i*(Wd-pl-pr)/(v.length-1)},y=function(a){return pt+(1-(a-mn)/(mx-mn))*(H-pt-pb)};
-  var s='<defs><linearGradient id="lg" x1="0" x2="1"><stop offset="0" stop-color="#6e2635"/><stop offset="1" stop-color="#e0566f"/></linearGradient><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6e2635" stop-opacity=".28"/><stop offset="1" stop-color="#6e2635" stop-opacity="0"/></linearGradient></defs>';
-  [0,1,2,3].forEach(function(k){var g=Math.round((mn+(mx-mn)*k/3)/10)*10;s+='<line x1="'+pl+'" x2="'+(Wd-pr)+'" y1="'+y(g)+'" y2="'+y(g)+'" stroke="rgba(20,17,43,.08)"/><text x="'+(pl-8)+'" y="'+(y(g)+4)+'" font-size="11" text-anchor="end" fill="#6d688a">'+g+'</text>'});
-  var line=v.map(function(a,i){return (i?'L':'M')+x(i)+' '+y(a)}).join(' ');
-  s+='<path d="'+line+' L'+x(v.length-1)+' '+(H-pb)+' L'+x(0)+' '+(H-pb)+' Z" fill="url(#ag)"/>';
-  s+='<path id="ln" d="'+line+'" fill="none" stroke="url(#lg)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1" style="animation:draw 1.6s .2s forwards"/>';
-  v.forEach(function(a,i){s+='<circle cx="'+x(i)+'" cy="'+y(a)+'" r="4.5" fill="#fff" stroke="#6e2635" stroke-width="2.5"/><text x="'+x(i)+'" y="'+(H-9)+'" font-size="11" text-anchor="middle" fill="#6d688a">S'+(i+1)+'</text>'});
-  s+='<text x="'+x(7)+'" y="'+(y(v[7])-12)+'" font-size="13" font-weight="600" text-anchor="end" fill="#14112B">'+v[7].toLocaleString('it-IT')+' follower</text>';
-  $('chart').innerHTML=s;
-}
 (function(){var st=document.createElement('style');st.textContent='@keyframes draw{to{stroke-dashoffset:0}}';document.head.appendChild(st)})();
-(function(){var h='<div></div>';
-  ['L','M','M','G','V','S','D'].forEach(function(d){h+='<div class="h">'+d+'</div>'});
-  [['08',[1,1,1,1,1,2,2]],['12',[2,3,2,3,2,3,3]],['19',[3,3,3,5,4,3,2]],['21',[2,2,3,3,3,2,1]]].forEach(function(r){
-    h+='<div class="h" style="text-align:right;padding-right:4px">'+r[0]+'</div>';
-    r[1].forEach(function(v){h+='<div class="c" style="background:rgba(110,38,53,'+(0.08+v*0.17)+')"></div>'})});
-  $('heat').innerHTML=h})();
 
 /* ---------- anteprima (Crea) ---------- */
 function renderCrea(){
@@ -693,7 +705,7 @@ async function askMat(){
 async function generate(){
   var P=PR[cur],ti=W.tema==null?0:W.tema,c=P.copy[Math.min(ti,P.copy.length-1)];
   var cap=c.cap+(W.note?' ('+W.note+')':'');
-  W.result={p:W.p,f:W.f,c:c,cap:cap,mat:W.mat,loading:true,t:P.temi[Math.min(ti,P.temi.length-1)]};
+  W.result={p:W.p,f:W.f,c:c,cap:cap,mat:W.mat,loading:true,t:W.temaTxt||P.temi[Math.min(ti,P.temi.length-1)]};
   renderCrea();go('crea');
   await say('Perfetto, ci lavoro. Guarda a destra: l\'anteprima prende forma.');
   var steps=['Rileggo cosa so del profilo e del tono','Analizzo i top post del settore su questo tema','Scrivo hook, script e caption'];
@@ -744,11 +756,13 @@ function after(){
 }
 async function after2(){await say('Vuoi creare altro?');setQuick([{label:'Crea un altro contenuto',main:true,fn:function(){W={};renderCrea();say('Volentieri! Cosa vuoi creare adesso?').then(askType)}}])}
 function fromIdea(x){
-  W={type:x.type,p:x.p,f:x.f,tema:x.tema};
+  var f=(x.formato||'').toLowerCase(),type=/reel|video|short/.test(f)?'video':/carosel|carousel/.test(f)?'carousel':/stori/.test(f)?'storia':/pin/.test(f)?'pin':'post';
+  var pf=PF[x.piattaforma]?x.piattaforma:'IG';
+  W={type:type,p:pf,f:x.formato||'Post',tema:null,temaTxt:x.titolo};
   $('chat').classList.add('open');
-  addMsg('me','Voglio creare: '+esc(x.t));
+  addMsg('me','Voglio creare: '+esc(x.titolo));
   setQuick([]);
-  say('Ottima idea. Parto da qui: <b>'+esc(x.t)+'</b> su '+PF[x.p]+'.').then(askMat);
+  say('Ottima idea. Parto da qui: <b>'+esc(x.titolo)+'</b> su '+PF[pf]+'.').then(askMat);
 }
 
 /* testo libero */
