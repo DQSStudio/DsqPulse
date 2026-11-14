@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Desearq Social — Agente social media (prototipo)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#14112B;--mut:#6d688a;--bg:#F7F3EC;
+  --vio:#6e2635;--cor:#FF6B5E;--lime:#C8F33A;--sky:#FFB84D;--pink:#e0566f;
+  --glass:rgba(255,255,255,.68);--line:rgba(20,17,43,.09);
+  --grad:linear-gradient(135deg,#6e2635 0%,#a1304c 50%,#e0566f 100%);
+  --shadow:0 10px 30px -12px rgba(90,25,40,.28),0 2px 6px rgba(20,17,43,.05);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--ink);font-family:'Outfit','Century Gothic',sans-serif;-webkit-text-size-adjust:100%}
+body{min-height:100vh;overflow-x:hidden}
+button{font-family:inherit}
+/* sfondo animato */
+.bg{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+.blob{position:absolute;border-radius:50%;filter:blur(70px);opacity:.55;animation:float 18s ease-in-out infinite}
+.b1{width:46vmax;height:46vmax;background:#d98a9a;left:-12vmax;top:-14vmax}
+.b2{width:38vmax;height:38vmax;background:#f3b6a6;right:-10vmax;top:10vmax;animation-delay:-6s}
+.b3{width:34vmax;height:34vmax;background:#ffd9a8;left:30vmax;bottom:-16vmax;animation-delay:-11s}
+.b4{width:22vmax;height:22vmax;background:#e4ff7a;right:20vmax;bottom:4vmax;opacity:.4;animation-delay:-3s}
+@keyframes float{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(4vmax,3vmax) scale(1.08)}66%{transform:translate(-3vmax,5vmax) scale(.95)}}
+.app{position:relative;z-index:1;display:grid;grid-template-columns:1fr;min-height:100vh}
+@media(min-width:980px){.app{grid-template-columns:390px 1fr}}
+
+/* ---------- chat con l'omino ---------- */
+.chat{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;background:rgba(247,243,236,.9);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);transform:translateY(105%);transition:transform .45s cubic-bezier(.2,.9,.25,1)}
+.chat.open{transform:none}
+@media(min-width:980px){.chat{position:sticky;top:0;height:100vh;transform:none;background:rgba(255,255,255,.5);border-right:1px solid var(--line)}}
+.ch{display:flex;align-items:center;gap:12px;padding:16px 18px;border-bottom:1px solid var(--line)}
+.ch .nm{font-weight:600;font-size:16px}.ch .st{font-size:12px;color:var(--mut)}
+.ch .x{margin-left:auto;border:0;background:rgba(20,17,43,.07);width:34px;height:34px;border-radius:50%;font-size:18px;cursor:pointer}
+@media(min-width:980px){.ch .x{display:none}}
+.orb{width:48px;height:48px;flex:none;background:url(assets/omino-sm.png) center/contain no-repeat;animation:bob 3.2s ease-in-out infinite;filter:drop-shadow(0 6px 8px rgba(110,38,53,.35))}
+@keyframes bob{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-4px) rotate(2deg)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.msgs{flex:1;overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:12px;scroll-behavior:smooth}
+.msg{max-width:88%;padding:12px 15px;border-radius:20px;font-size:15px;line-height:1.45;animation:pop .35s cubic-bezier(.2,.9,.3,1.2) both}
+.msg.bot{background:#fff;border:1px solid var(--line);border-bottom-left-radius:6px;align-self:flex-start;box-shadow:var(--shadow)}
+.msg.me{background:var(--grad);color:#fff;border-bottom-right-radius:6px;align-self:flex-end}
+.msg b{font-weight:600}
+@keyframes pop{from{opacity:0;transform:translateY(10px) scale(.96)}to{opacity:1;transform:none}}
+.typing{display:flex;gap:5px;padding:14px 16px}
+.typing i{width:7px;height:7px;border-radius:50%;background:var(--vio);animation:blink 1s infinite}
+.typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
+@keyframes blink{0%,60%,100%{opacity:.25;transform:none}30%{opacity:1;transform:translateY(-4px)}}
+.rc{margin-top:8px;border-radius:14px;background:linear-gradient(135deg,rgba(110,38,53,.1),rgba(255,79,163,.1));padding:11px 12px;font-size:14px}
+.rc small{display:block;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);margin-bottom:3px}
+.quick{padding:6px 18px 10px;display:flex;flex-wrap:wrap;gap:8px;min-height:8px}
+.qb{border:1.5px solid rgba(110,38,53,.35);background:#fff;color:var(--vio);border-radius:99px;padding:9px 15px;font-size:14px;font-weight:500;cursor:pointer;transition:.18s;animation:pop .35s both}
+.qb:hover{background:var(--vio);color:#fff;transform:translateY(-2px);box-shadow:0 8px 18px -8px rgba(110,38,53,.7)}
+.qb.main{background:var(--grad);color:#fff;border:0;box-shadow:0 8px 20px -8px rgba(161,48,76,.8)}
+.comp{display:flex;gap:8px;padding:10px 14px calc(14px + env(safe-area-inset-bottom));border-top:1px solid var(--line)}
+.comp input{flex:1;font:inherit;font-size:16px;border:1px solid var(--line);background:#fff;border-radius:99px;padding:12px 16px;outline:none}
+.comp input:focus{border-color:var(--vio);box-shadow:0 0 0 3px rgba(110,38,53,.15)}
+.comp button{width:46px;height:46px;border:0;border-radius:50%;background:var(--grad);color:#fff;font-size:20px;cursor:pointer}
+
+/* ---------- area principale ---------- */
+.main{padding:18px 16px 110px;min-width:0}
+@media(min-width:980px){.main{padding:26px 34px 60px}}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.logo{font-size:26px;font-weight:700;letter-spacing:-.02em}
+.logo span{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.logo sup{font-size:10px;color:var(--mut)}
+.demo{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--mut);margin-top:2px}
+.profsel{display:flex;background:rgba(255,255,255,.75);border:1px solid var(--line);border-radius:99px;padding:4px;box-shadow:var(--shadow)}
+.profsel button{border:0;background:transparent;border-radius:99px;padding:9px 18px;font-size:14px;font-weight:600;color:var(--mut);cursor:pointer;transition:.25s}
+.profsel button.on{background:var(--ink);color:#fff;box-shadow:0 6px 16px -6px rgba(20,17,43,.6)}
+.tabs{display:flex;gap:8px;overflow-x:auto;padding:6px 2px 14px;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:none;border:1px solid var(--line);background:rgba(255,255,255,.7);border-radius:99px;padding:10px 18px;font-size:14px;font-weight:500;color:var(--ink);cursor:pointer;transition:.2s}
+.tab:hover{transform:translateY(-2px)}
+.tab.on{background:var(--grad);color:#fff;border-color:transparent;box-shadow:0 10px 22px -10px rgba(161,48,76,.9)}
+h2{font-size:34px;font-weight:700;letter-spacing:-.025em;line-height:1.1;margin-bottom:6px}
+h2 em{font-style:normal;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+p.lead{color:var(--mut);font-size:16px;line-height:1.45;margin-bottom:18px;max-width:640px}
+h3{font-size:12px;letter-spacing:.2em;text-transform:uppercase;font-weight:600;color:var(--mut);margin:26px 0 12px}
+.view{display:none}.view.on{display:block;animation:fade .45s both}
+@keyframes fade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.grid{display:grid;gap:14px}
+.g4{grid-template-columns:repeat(2,1fr)}
+@media(min-width:760px){.g4{grid-template-columns:repeat(4,1fr)}.g2{grid-template-columns:1fr 1fr}}
+.card{background:var(--glass);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.85);border-radius:22px;padding:16px 18px;box-shadow:var(--shadow);transition:.25s}
+.hov:hover{transform:translateY(-3px);box-shadow:0 18px 36px -16px rgba(90,25,40,.4)}
+.kpi{position:relative;overflow:hidden}
+.kpi::before{content:"";position:absolute;right:-30px;top:-30px;width:90px;height:90px;border-radius:50%;background:var(--grad);opacity:.14}
+.kpi:nth-child(2)::before{background:linear-gradient(135deg,#FFB84D,#6e2635)}
+.kpi:nth-child(3)::before{background:linear-gradient(135deg,#C8F33A,#FFB84D)}
+.kpi:nth-child(4)::before{background:linear-gradient(135deg,#FF6B5E,#FFB84D)}
+.kpi .n{font-size:38px;font-weight:700;letter-spacing:-.03em;line-height:1.05}
+.kpi .l{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);margin-top:4px}
+.kpi .d{font-size:13px;font-weight:500;color:#12a36b;margin-top:6px}
+.row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:0}
+.grow{flex:1;min-width:0}
+.t{font-size:16px;font-weight:500;line-height:1.3}.m{font-size:13px;color:var(--mut);margin-top:2px;line-height:1.4}
+.pf{width:34px;height:34px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex:none;letter-spacing:.02em}
+.pf.IG{background:linear-gradient(45deg,#FEDA75,#FA7E1E 30%,#D62976 65%,#962FBF)}
+.pf.TT{background:#111;text-shadow:1px 0 #ff2d6f,-1px 0 #25f4ee}
+.pf.PN{background:#E60023}.pf.YT{background:#FF0033}
+.pf.PDF{background:var(--ink)}
+.pill{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:5px 11px;border-radius:99px;background:rgba(20,17,43,.07);color:var(--mut);white-space:nowrap}
+.pill.ok{background:rgba(18,163,107,.14);color:#0d8a58}.pill.wa{background:rgba(255,107,94,.16);color:#d6402f}.pill.pub{background:var(--ink);color:#fff}
+.btn{font:inherit;font-size:14px;font-weight:600;background:var(--grad);color:#fff;border:0;border-radius:99px;padding:12px 22px;cursor:pointer;box-shadow:0 10px 22px -10px rgba(161,48,76,.9);transition:.2s}
+.btn:hover{transform:translateY(-2px) scale(1.02)}
+.btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--ink);box-shadow:none}
+.btn.sm{padding:8px 15px;font-size:13px}
+.btn:disabled{opacity:.4;cursor:default;transform:none}
+.agent{position:relative;overflow:hidden;background:linear-gradient(135deg,#3d1119,#6e2635 55%,#a1304c);color:#fff;border-radius:22px;padding:18px 20px;line-height:1.55;font-size:16px;box-shadow:0 18px 36px -18px rgba(90,25,40,.8)}
+.agent::after{content:"";position:absolute;right:-40px;bottom:-50px;width:140px;height:140px;border-radius:50%;background:radial-gradient(circle,rgba(200,243,58,.5),transparent 65%)}
+.agent b{display:block;font-weight:600;letter-spacing:.14em;font-size:11px;text-transform:uppercase;margin-bottom:6px;opacity:.8}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);font-weight:600;text-align:left;padding:8px 8px}
+td{padding:12px 8px;border-top:1px solid var(--line);vertical-align:top}
+.scroll{overflow-x:auto}
+.bar{height:10px;background:rgba(20,17,43,.07);border-radius:6px;overflow:hidden;margin-top:7px}
+.bar i{display:block;height:100%;width:0;border-radius:6px;background:var(--grad);transition:width 1s cubic-bezier(.2,.9,.25,1)}
+.hm{display:grid;grid-template-columns:34px repeat(7,1fr);gap:4px;font-size:11px;color:var(--mut)}
+.hm div.c{height:26px;border-radius:7px;transition:.2s}
+.hm div.c:hover{transform:scale(1.15)}
+.hm div.h{text-align:center;padding:4px 0}
+label.l{display:block;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);margin:14px 0 6px;font-weight:600}
+textarea,input[type=date],input[type=time]{width:100%;font:inherit;font-size:16px;background:#fff;color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:12px 14px;outline:none}
+textarea{min-height:88px;resize:vertical;line-height:1.4}
+textarea:focus{border-color:var(--vio);box-shadow:0 0 0 3px rgba(110,38,53,.15)}
+.week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px}
+.day{background:var(--glass);border:1px solid rgba(255,255,255,.85);border-radius:16px;min-height:104px;padding:7px 5px;box-shadow:var(--shadow)}
+.day.today{outline:2px solid var(--vio)}
+.day .dn{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);text-align:center}
+.day .dd{font-size:18px;font-weight:600;text-align:center;margin-bottom:5px}
+.ev{font-size:10px;line-height:1.25;border-radius:8px;padding:4px 5px;margin-top:4px;color:#fff;font-weight:500}
+.ev.IG{background:linear-gradient(45deg,#FA7E1E,#D62976,#962FBF)}.ev.TT{background:#111}.ev.PN{background:#E60023}.ev.YT{background:#FF0033}
+.ev.da{opacity:.55;outline:1.5px dashed var(--ink)}
+.score{font-size:14px;font-weight:700;background:var(--lime);color:var(--ink);border-radius:10px;padding:4px 10px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);background:var(--ink);color:#fff;padding:12px 20px;border-radius:99px;font-size:14px;opacity:0;pointer-events:none;transition:.35s;z-index:90;max-width:90vw;text-align:center}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+.note{font-size:13px;color:var(--mut);line-height:1.5;margin-top:14px}
+.meter{height:12px;background:rgba(20,17,43,.08);border-radius:8px;overflow:hidden;margin:10px 0 6px}
+.meter i{display:block;height:100%;background:var(--grad);border-radius:8px;transition:width .8s cubic-bezier(.2,.9,.25,1)}
+.file{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:15px}
+.file:last-child{border-bottom:0}
+.qa{padding:14px 0;border-bottom:1px solid var(--line)}
+.qa:last-child{border-bottom:0}
+.qa .q{font-size:17px;line-height:1.35;font-weight:500}
+.qa .src{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);margin:0 0 6px}
+.qa .ans{font-size:15px;color:#8a2840;margin-top:6px;line-height:1.45;white-space:pre-wrap}
+.filebtn{display:block;border:2px dashed rgba(110,38,53,.4);border-radius:18px;padding:22px 16px;text-align:center;width:100%;cursor:pointer;font-size:15px;font-weight:500;background:rgba(110,38,53,.05);transition:.2s}
+.filebtn:hover{background:rgba(110,38,53,.1);transform:translateY(-2px)}
+.filebtn input{display:none}
+
+/* anteprima */
+.stage{display:grid;gap:22px;grid-template-columns:1fr}
+@media(min-width:1100px){.stage{grid-template-columns:300px 1fr;align-items:start}}
+.phonewrap{display:flex;justify-content:center}
+.phone{position:relative;width:268px;border-radius:38px;background:#0c0a1d;padding:9px;box-shadow:0 30px 60px -24px rgba(60,15,30,.7);animation:fade .6s both}
+.screen{position:relative;border-radius:30px;overflow:hidden;color:#fff;display:flex;flex-direction:column;justify-content:flex-end;padding:18px 16px}
+.screen.IG{background:linear-gradient(165deg,#6e2635,#c0304f 55%,#ff8a3d)}
+.screen.TT{background:linear-gradient(165deg,#0b0b14,#3d1624 55%,#0aa7a5)}
+.screen.PN{background:linear-gradient(165deg,#ff6b81,#e60023 60%,#7a0014)}
+.screen.YT{background:linear-gradient(165deg,#1a1a2e,#8a0f2a 60%,#ff3b5c)}
+.screen::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 20% 15%,rgba(255,255,255,.28),transparent 45%)}
+.screen .shim{position:absolute;inset:0;background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.22) 50%,transparent 70%);background-size:220% 100%;animation:shim 2.4s linear infinite}
+@keyframes shim{from{background-position:120% 0}to{background-position:-120% 0}}
+.screen .tag{position:absolute;left:14px;top:14px;font-size:10px;letter-spacing:.14em;text-transform:uppercase;background:rgba(0,0,0,.35);padding:5px 9px;border-radius:99px}
+.screen .side{position:absolute;right:12px;bottom:90px;display:flex;flex-direction:column;gap:12px}
+.screen .side i{width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.22);backdrop-filter:blur(6px)}
+.screen .hk{position:relative;font-size:24px;font-weight:700;line-height:1.12;letter-spacing:-.02em;margin-bottom:10px;animation:rise .8s .1s both;text-wrap:balance}
+.screen .cp{position:relative;font-size:12px;line-height:1.4;opacity:.92;max-width:84%;animation:rise .8s .3s both}
+@keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+.empty{text-align:center;padding:50px 20px}
+.empty .orb{width:110px;height:110px;background-image:url(assets/omino.png);margin:0 auto 18px}
+.scn{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:15px;line-height:1.4}
+.scn span{font-size:12px;font-weight:600;color:var(--vio);width:54px;flex:none;padding-top:2px}
+.when{display:flex;align-items:center;gap:14px;background:linear-gradient(135deg,rgba(200,243,58,.4),rgba(255,184,77,.25));border-radius:18px;padding:14px 16px;margin-top:14px}
+.when .big{font-size:26px;font-weight:700;letter-spacing:-.02em}
+canvas#cf{position:fixed;inset:0;width:100%;height:100%;z-index:100;pointer-events:none}
+.fab{position:fixed;right:18px;bottom:20px;z-index:55;width:68px;height:68px;border-radius:50%;border:0;background:#fff;box-shadow:0 14px 30px -10px rgba(90,25,40,.7);display:flex;align-items:center;justify-content:center;cursor:pointer;animation:bob 3s ease-in-out infinite}
+.fab .orb{width:50px;height:50px}
+.fab .bd{position:absolute;right:-2px;top:-2px;min-width:22px;height:22px;border-radius:11px;background:var(--cor);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 6px}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@media(min-width:980px){.fab{display:none}}
+svg text{font-family:'Outfit',sans-serif}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="bg"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div><div class="blob b4"></div></div>
+<canvas id="cf"></canvas>
+
+<div class="app">
+<!-- CHAT CON L'OMINO -->
+<aside class="chat" id="chat">
+  <div class="ch">
+    <div class="orb"></div>
+    <div><div class="nm">Assistente Social</div><div class="st" id="chprof"></div></div>
+    <button class="x" id="chx" aria-label="Chiudi">×</button>
+  </div>
+  <div class="msgs" id="msgs"></div>
+  <div class="quick" id="quick"></div>
+  <form class="comp" id="comp"><input id="cin" placeholder="Scrivi qui o scegli sopra" autocomplete="off"><button aria-label="Invia">↑</button></form>
+</aside>
+
+<!-- INTERFACCIA -->
+<main class="main">
+  <div class="top">
+    <div><div class="logo"><span>Social</span><sup>®</sup></div><div class="demo">by Desearq Lab · prototipo con dati di esempio</div></div>
+    <div class="profsel" id="profsel"><button data-p="studio" class="on">Studio</button><button data-p="lab">Lab</button></div>
+  </div>
+  <div class="tabs" id="tabs">
+    <button class="tab on" data-v="oggi">Oggi</button>
+    <button class="tab" data-v="crea">Crea</button>
+    <button class="tab" data-v="mercato">Mercato</button>
+    <button class="tab" data-v="idee">Idee</button>
+    <button class="tab" data-v="cal">Calendario</button>
+    <button class="tab" data-v="ris">Risultati</button>
+    <button class="tab" data-v="prof">Profilo</button>
+  </div>
+
+  <section class="view on" id="v-oggi">
+    <h2 id="oggi-title"></h2>
+    <p class="lead" id="oggi-lead"></p>
+    <div class="grid g4">
+      <div class="card kpi hov"><div class="n" id="k-fol"></div><div class="l">Follower totali</div><div class="d" id="k-fold"></div></div>
+      <div class="card kpi hov"><div class="n" id="k-eng"></div><div class="l">Engagement medio</div><div class="d" id="k-engd"></div></div>
+      <div class="card kpi hov"><div class="n" id="k-prog">0</div><div class="l">Post programmati</div><div class="d">prossimi 7 giorni</div></div>
+      <div class="card kpi hov"><div class="n" id="k-app">0</div><div class="l">Da approvare</div><div class="d" style="color:#d6402f">serve il tuo ok</div></div>
+    </div>
+    <h3>Consiglio dell'agente</h3>
+    <div class="agent" id="advice"></div>
+    <h3>L'agente ti chiede</h3>
+    <div class="card" id="newq"></div>
+    <h3>Prossime uscite</h3>
+    <div class="card" id="next-list"></div>
+  </section>
+
+  <section class="view" id="v-crea">
+    <h2>Crea <em>con l'assistente</em></h2>
+    <p class="lead">Racconta all'assistente cosa vuoi fare nella conversazione a sinistra. Qui vedi l'anteprima che prende forma.</p>
+    <div id="crea-body"></div>
+  </section>
+
+  <section class="view" id="v-mercato">
+    <h2>Mercato e <em>concorrenti</em></h2>
+    <p class="lead" id="mer-lead"></p>
+    <h3>Profili proposti dall'agente</h3>
+    <div class="card" id="prop-list"></div>
+    <h3>Profili monitorati</h3>
+    <div class="card" id="appr-list"></div>
+    <div id="schemi"></div>
+    <h3>Concorrenti diretti</h3>
+    <div class="card scroll"><table id="comp-tab"></table></div>
+    <p class="note">Nomi e numeri sono segnaposto. Nella versione reale l'agente legge profili pubblici e aggiorna la tabella ogni giorno.</p>
+    <div class="grid g2">
+      <div><h3>Formati che funzionano</h3><div class="card" id="formats"></div></div>
+      <div><h3>Trend e hashtag</h3><div class="card" id="trends"></div></div>
+    </div>
+    <h3>Orari migliori (Instagram)</h3>
+    <div class="card"><div class="hm" id="heat"></div></div>
+  </section>
+
+  <section class="view" id="v-idee">
+    <h2>Le <em>idee</em> del momento</h2>
+    <p class="lead">Ordinate per potenziale virale, in base a mercato, concorrenti, storico dei tuoi post e a ciò che l'agente sa del profilo.</p>
+    <div class="card" id="idee-list"></div>
+  </section>
+
+  <section class="view" id="v-cal">
+    <h2>Il tuo <em>calendario</em></h2>
+    <p class="lead">Tutte le uscite su tutti i social. Approva o rifiuta ciò che l'agente propone.</p>
+    <div class="week" id="week"></div>
+    <h3>Tutte le uscite</h3>
+    <div class="card" id="cal-list"></div>
+  </section>
+
+  <section class="view" id="v-ris">
+    <h2>Cosa sta <em>funzionando</em></h2>
+    <p class="lead">I numeri delle ultime settimane e cosa cambia l'agente nella strategia.</p>
+    <div class="card"><svg id="chart" viewBox="0 0 640 230" width="100%" role="img" aria-label="Andamento follower ultime 8 settimane"></svg></div>
+    <h3>Post migliori</h3>
+    <div class="card" id="best"></div>
+    <h3>Cosa impara l'agente</h3>
+    <div class="agent" id="learn"></div>
+    <p class="note">Grafico e numeri sono dimostrativi.</p>
+  </section>
+
+  <section class="view" id="v-prof">
+    <h2 id="prof-title"></h2>
+    <p class="lead">Prima di creare contenuti, l'agente deve conoscere chi sei e come lavori. Carica i PDF: l'agente li legge, individua cosa non gli è chiaro e ti fa le domande giuste.</p>
+    <div class="card">
+      <div class="m" style="margin:0">Quanto l'agente conosce questo profilo</div>
+      <div class="t" style="font-size:34px;font-weight:700" id="kn-pct">0%</div>
+      <div class="meter"><i id="kn-bar" style="width:0%"></i></div>
+      <div class="m" id="kn-sub"></div>
+    </div>
+    <h3>1 · Carica i documenti</h3>
+    <div class="card">
+      <label class="filebtn"><input type="file" id="pdfin" accept="application/pdf" multiple>Tocca per aggiungere PDF<br><span class="m">presentazioni, portfolio, brochure, listini, linee guida del brand</span></label>
+      <div id="files" style="margin-top:8px"></div>
+      <div style="margin-top:12px"><button class="btn" id="mkq">Genera domande dai PDF</button></div>
+    </div>
+    <div id="kn-q-wrap" style="display:none"><h3>2 · Rispondi alle domande</h3><div class="card" id="qlist"></div></div>
+    <div id="kn-sum-wrap" style="display:none"><h3>3 · Cosa ha capito l'agente</h3><div class="agent" id="kn-sum"></div></div>
+    <p class="note">In questo prototipo le domande sono di esempio e i PDF non vengono letti. Nella versione reale l'agente estrae il testo dei PDF e fa domande sulle informazioni mancanti o poco chiare. Il profilo non resta fermo: nuove domande arrivano in Oggi quando l'agente vede risultati inattesi, contenuti in esaurimento o novità, e ogni risposta lo aggiorna.</p>
+  </section>
+</main>
+</div>
+
+<button class="fab" id="fab" aria-label="Apri l'assistente"><div class="orb"></div><span class="bd" id="fabbd" style="display:none">1</span></button>
+<div class="toast" id="toast"></div>
+
+<script>
+var SPEED=(typeof window.SPEED==='number')?window.SPEED:1;
+var PF={IG:'Instagram',TT:'TikTok',PN:'Pinterest',YT:'YouTube'};
+var MESI=['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'],GG=['Dom','Lun','Mar','Mer','Gio','Ven','Sab'];
+var d0=new Date();d0.setHours(0,0,0,0);
+function addD(n){var d=new Date(d0);d.setDate(d.getDate()+n);return d}
+function fd(d){return GG[d.getDay()]+' '+d.getDate()+' '+MESI[d.getMonth()]}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function $(id){return document.getElementById(id)}
+function sleep(ms){return new Promise(function(r){setTimeout(r,ms*SPEED)})}
+function toast(m){var t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.k);toast.k=setTimeout(function(){t.classList.remove('on')},2300)}
+
+/* ---------- dati dei due profili ---------- */
+var PR={
+ studio:{
+  name:'Desearq Studio',
+  lead:'Studio di architettura e interior design. Target: privati e famiglie che ristrutturano o arredano casa a Milano.',
+  tono:'rassicurante, concreto e professionale',
+  target:'privati e famiglie che ristrutturano casa a Milano',
+  kpi:['4.820','+3,1% in 7 giorni','5,8%','media settore 3,2%'],
+  advice:'I reel "prima/dopo" di ristrutturazioni bagno hanno 2,4 volte le visualizzazioni medie del settore a Milano. Ti propongo 2 reel questa settimana con un hook nei primi 2 secondi e il cantiere come protagonista. Il giovedì alle 19:00 è la tua fascia migliore su Instagram.',
+  best:{IG:'19:00',TT:'18:00',PN:'12:30',YT:'11:00'},
+  comp:[['Studio A (Milano)','48,2k','5','3,9%','Reel prima/dopo'],['Studio B (Milano)','21,7k','4','4,6%','Tour di casa'],['Studio C (Torino)','96,0k','7','2,8%','Carousel materiali'],['Studio D (Roma)','12,4k','3','6,1%','Dietro le quinte'],['<b>Desearq Studio</b>','4,8k','2','5,8%','Render + cantiere']],
+  formats:[['Reel prima/dopo',92],['Tour in 30 secondi',78],['Carousel materiali e dettagli',64],['Time-lapse di cantiere',58],['Foto singola di progetto',31]],
+  trends:[['#bagnomoderno','in crescita · Instagram','+34%',1],['#ristrutturazionemilano','stabile · Instagram','+4%',0],['#renovationtok','in crescita · TikTok','+51%',1],['Colori terra / nicchie','tema · Pinterest','+28%',1]],
+  prop:[
+   {id:'a',pf:'IG',h:'Profilo A',d:'interior design · 2,1M follower',why:'Reel prima/dopo con testo a schermo nel primo secondo, media 1,4M visualizzazioni',st:'outlier x6'},
+   {id:'b',pf:'TT',h:'Profilo B',d:'ristrutturazioni · 1,3M follower',why:'Time-lapse con audio in tendenza, 12–18 secondi, 900k visualizzazioni',st:'outlier x9'},
+   {id:'c',pf:'PN',h:'Profilo C',d:'arredamento · 780k follower',why:'Pin verticali con palette colori, 120k salvataggi al mese',st:'costante'},
+   {id:'d',pf:'YT',h:'Profilo D',d:'case e tour · 950k follower',why:'Short da 40 secondi con voce fuori campo, 600k visualizzazioni',st:'outlier x4'}],
+  schemi:'1) L\'hook è nei primi 1–2 secondi, quasi sempre con testo sullo schermo. 2) Durata 12–25 secondi, con un taglio ogni 1–2 secondi. 3) Il cambiamento visibile (prima/dopo, cantiere) batte il risultato finale da solo. 4) Escono in fascia serale, tra le 19 e le 21. 5) Caption brevi che chiudono con una domanda o con l\'invito a salvare.',
+  temi:['Prima e dopo di un bagno','Tour di un appartamento','Dettaglio di materiali e finiture','Time-lapse di cantiere','Consiglio di progettazione','Dietro le quinte dello studio'],
+  copy:[
+   {hook:'Questo bagno era così. Guarda cosa è diventato.',scene:['Inquadratura fissa sul bagno prima dei lavori','Stacco rapido sul cantiere: demolizione e posa','Reveal del bagno finito con movimento lento','Dettaglio resina e luce, testo con metri quadri e tempi'],cap:'Da 4 mq anonimi a un bagno che sembra una suite. Resina chiara, nicchia illuminata e una doccia a filo pavimento. Lavori completati in 6 settimane.',tags:'#bagnomoderno #ristrutturazionemilano #interiordesign #prima #dopo #desearq'},
+   {hook:'Entra con me in 60 mq progettati al centimetro.',scene:['Ingresso con luce naturale','Soggiorno: panoramica lenta','Cucina e dettaglio dei materiali','Camera e armadio su misura','Planimetria in sovraimpressione e chiusura'],cap:'60 mq a Milano, zero spazio sprecato. Ogni mobile è disegnato su misura. Guarda fino alla fine per la planimetria.',tags:'#appartamentomilano #homedesign #architettura #tourdicasa #desearq'},
+   {hook:'Il dettaglio che cambia tutto in una stanza.',scene:['Macro su una finitura','Mano che tocca il materiale','Il materiale inserito nel progetto','Campioni accostati con i nomi'],cap:'La differenza tra un buon progetto e uno memorabile sta nei materiali. Questa è la combinazione che abbiamo scelto, e perché.',tags:'#materiali #finiture #interiordesign #dettagli #desearq'},
+   {hook:'6 settimane di cantiere in 20 secondi.',scene:['Cantiere vuoto, camera ferma','Demolizione accelerata','Impianti e massetto','Posa finiture','Spazio finito, luce del tramonto'],cap:'Cosa succede davvero in un cantiere, settimana dopo settimana. Il risultato finale in fondo.',tags:'#timelapse #cantiere #ristrutturazione #renovationtok #desearq'},
+   {hook:'3 errori che vediamo in quasi ogni progetto.',scene:['Titolo e primo errore con foto','Secondo errore con schizzo','Terzo errore con esempio reale','Come evitarli: invito a salvare il post'],cap:'Li vediamo ogni settimana. Salva il post prima di iniziare i lavori e mandalo a chi sta ristrutturando.',tags:'#consigliarchitetto #progettazione #ristrutturare #interiordesign #desearq'},
+   {hook:'Cosa succede nello studio prima di un render.',scene:['Rilievo in cantiere con il metro','Schizzo a mano','Modello 3D sullo schermo','Render finale accanto alla foto reale'],cap:'Dal rilievo al render: ecco come lavoriamo ogni giorno. Dietro ogni immagine ci sono ore di scelte.',tags:'#dietrolequinte #architetti #studiodiarchitettura #render #desearq'}],
+  ideas:[
+   {t:'Reel prima/dopo bagno con resina, 15 secondi',type:'video',p:'IG',f:'Reel',tema:0,s:92,w:'Il formato più forte del settore a Milano'},
+   {t:'Time-lapse della posa della resina in cantiere',type:'video',p:'TT',f:'Video breve',tema:3,s:84,w:'#renovationtok in crescita del 51%'},
+   {t:'3 errori da evitare nel progetto di un bagno piccolo',type:'carousel',p:'IG',f:'Carousel',tema:4,s:76,w:'I carousel con consigli vengono salvati molto'},
+   {t:'Moodboard colori terra per soggiorno',type:'pin',p:'PN',f:'Pin',tema:2,s:71,w:'Trend Pinterest +28% nelle ultime 4 settimane'},
+   {t:'Una giornata in studio: dal rilievo al render',type:'video',p:'YT',f:'Short',tema:5,s:63,w:'Il dietro le quinte fa engagement alto sui piccoli account'}],
+  posts:[
+   {d:0,h:'19:00',p:'IG',f:'Reel',t:'Prima/dopo bagno in resina',st:'da approvare'},
+   {d:1,h:'12:30',p:'PN',f:'Pin',t:'Moodboard colori terra',st:'programmato'},
+   {d:2,h:'18:00',p:'TT',f:'Video breve',t:'Time-lapse posa resina',st:'da approvare'},
+   {d:3,h:'19:00',p:'IG',f:'Carousel',t:'3 errori nel bagno piccolo',st:'programmato'},
+   {d:5,h:'11:00',p:'YT',f:'Short',t:'Una giornata in studio',st:'programmato'}],
+  series:[3980,4040,4110,4190,4330,4520,4680,4820],
+  newq:[{q:'Il reel del bagno in resina è andato molto bene. Posso mostrare più cantiere e persone al lavoro anche negli altri progetti?',why:'I contenuti con persone al lavoro rendono il doppio delle foto di sola architettura'},{q:'Hai concluso un nuovo progetto questa settimana che posso mostrare?',why:'Ho quasi finito i contenuti nuovi per il calendario'}],
+  bestp:[['IG','Reel: bagno prima/dopo in 15 secondi','41k visualizzazioni · 9,2% engagement'],['TT','Time-lapse posa resina','18k visualizzazioni · 7,4% engagement'],['PN','Moodboard colori terra','3,2k salvataggi']],
+  learn:'I contenuti con volto o mani al lavoro rendono il doppio delle foto di sola architettura. Dalla prossima settimana inserisco più cantiere e più "come si fa". Riduco le foto singole, che sono sotto la media da un mese.',
+  qs:['Chi è il cliente ideale dello studio (budget, tipo di casa, zona)?','Quali lavori vuoi far crescere di più: bagni, ristrutturazioni complete, arredo su misura?','Cosa ti distingue dagli altri studi di Milano?','Come vuoi essere percepito: rassicurante, d\'autore, tecnico?','Quali progetti puoi mostrare e quali no (privacy dei clienti)?','Qual è l\'obiettivo dei social: richieste di preventivo, notorietà, nuovi collaboratori?']
+ },
+ lab:{
+  name:'Desearq Lab',
+  lead:'Software per studi di architettura e professionisti. Target: architetti, ingegneri, geometri e imprese che cercano strumenti più veloci.',
+  tono:'minimale, tecnico e diretto',
+  target:'studi di architettura, ingegneri, geometri e imprese',
+  kpi:['1.240','+5,4% in 7 giorni','4,1%','media settore 2,6%'],
+  advice:'Le demo da 15–20 secondi con il risultato subito visibile sono il formato che funziona meglio tra i brand software per architetti. Ti propongo due reel questa settimana: uno sulle tavole impianti generate da planimetria e uno sul render con AI. Il martedì e il giovedì alle 12:30 è la fascia in cui i professionisti sono più attivi.',
+  best:{IG:'12:30',TT:'18:00',PN:'12:30',YT:'11:00'},
+  comp:[['Software A','38,4k','4','2,9%','Demo rapide'],['Software B','12,1k','3','3,8%','Tutorial BIM'],['Software C','65,0k','6','2,1%','Novità di prodotto'],['Software D','7,9k','2','5,2%','Trucchi pratici'],['<b>Desearq Lab</b>','1,2k','2','4,1%','Demo + dietro le quinte']],
+  formats:[['Demo in 15–20 secondi',90],['Prima/dopo con AI',84],['Tutorial con trucchi pratici',70],['Dietro le quinte dello sviluppo',55],['Annuncio di novità',34]],
+  trends:[['#architettura','stabile · Instagram','+3%',0],['#renderai','in crescita · TikTok','+62%',1],['#bim','in crescita · YouTube','+21%',1],['Interfacce minimal','tema · Pinterest','+19%',1]],
+  prop:[
+   {id:'e',pf:'IG',h:'Profilo E',d:'software per architetti · 310k follower',why:'Demo di 15 secondi con risultato subito visibile, media 210k visualizzazioni',st:'outlier x5'},
+   {id:'f',pf:'TT',h:'Profilo F',d:'strumenti AI per il design · 540k follower',why:'Prima/dopo con AI in verticale, 400k visualizzazioni',st:'outlier x8'},
+   {id:'g',pf:'YT',h:'Profilo G',d:'tutorial BIM · 220k follower',why:'Short con un trucco pratico per video, 90k visualizzazioni',st:'costante'}],
+  schemi:'1) Il risultato si vede nei primi 2 secondi, prima di ogni spiegazione. 2) La demo dura 15–25 secondi, schermo reale e niente musica invadente. 3) Il confronto tempo prima/tempo dopo è l\'hook più efficace. 4) Una sola funzione per video. 5) La chiusura invita a provare con un proprio progetto.',
+  temi:['Demo di un programma in 20 secondi','Prima e dopo con il software','Consiglio per studi di architettura','Dietro le quinte dello sviluppo'],
+  copy:[
+   {hook:'Questa tavola ci metteva mezza giornata. Ora 20 secondi.',scene:['Schermata con la planimetria caricata','Click su genera: le tavole compaiono','Zoom su quote e simboli degli impianti','Testo finale: provalo con il tuo progetto'],cap:'Dalla planimetria arredata alle tavole degli impianti, in automatico. Fatto da architetti, per architetti.',tags:'#architettura #software #studiodiarchitettura #automazione #desearqlab'},
+   {hook:'Uno screenshot di SketchUp. Poi questo.',scene:['Screenshot grezzo del modello','Barra di caricamento con il render in costruzione','Reveal del render fotorealistico','Confronto affiancato prima/dopo'],cap:'Dallo screenshot al render fotorealistico con l\'AI, senza ore di rendering. Il progetto resta fedele al modello.',tags:'#renderai #sketchup #architettura #rendering #desearqlab'},
+   {hook:'3 errori nel computo metrico che fanno perdere soldi.',scene:['Titolo e primo errore con schermata','Secondo errore con esempio','Terzo errore con esempio','Come evitarli: invito a salvare il post'],cap:'Li vediamo in quasi ogni studio. Salva il post e mandalo a chi prepara i computi.',tags:'#computometrico #architetti #cantiere #preventivi #desearqlab'},
+   {hook:'Come costruiamo i nostri strumenti, dal foglio bianco al rilascio.',scene:['Schizzo dell\'interfaccia su carta','Prime schermate in sviluppo','Test con un progetto vero','Rilascio e primo utente'],cap:'Siamo architetti che hanno costruito i programmi che usano ogni giorno. Ecco come nasce uno strumento nuovo.',tags:'#dietrolequinte #software #architetti #design #desearqlab'}],
+  ideas:[
+   {t:'Da planimetria DXF a tavole impianti in 20 secondi',type:'video',p:'IG',f:'Reel',tema:0,s:90,w:'Le demo rapide con risultato visibile guidano il settore'},
+   {t:'Render AI: da screenshot di SketchUp a immagine fotorealistica',type:'video',p:'TT',f:'Video breve',tema:1,s:85,w:'#renderai in crescita del 62%'},
+   {t:'3 errori nel computo metrico che fanno perdere soldi',type:'carousel',p:'IG',f:'Carousel',tema:2,s:74,w:'I consigli per professionisti vengono salvati molto'},
+   {t:'Come nasce un nostro strumento: dietro le quinte',type:'video',p:'YT',f:'Short',tema:3,s:66,w:'Il dietro le quinte crea fiducia nei brand software piccoli'},
+   {t:'Interfaccia e palette: il design dei nostri programmi',type:'pin',p:'PN',f:'Pin',tema:1,s:58,w:'Pinterest porta traffico qualificato di designer'}],
+  posts:[
+   {d:1,h:'12:30',p:'IG',f:'Reel',t:'Tavole impianti in 20 secondi',st:'da approvare'},
+   {d:2,h:'18:00',p:'TT',f:'Video breve',t:'Render AI da SketchUp',st:'da approvare'},
+   {d:4,h:'12:30',p:'IG',f:'Carousel',t:'3 errori nel computo metrico',st:'programmato'},
+   {d:6,h:'11:00',p:'YT',f:'Short',t:'Come nasce un nostro strumento',st:'programmato'}],
+  series:[820,870,930,990,1040,1110,1180,1240],
+  newq:[{q:'Il reel sulle tavole impianti ha avuto 28k visualizzazioni. Vuoi che costruisca una serie dedicata a questo strumento?',why:'È il tuo contenuto con il miglior risultato dell\'ultimo mese'},{q:'Ci sono funzioni nuove del Render AI da annunciare questo mese?',why:'Mi servono novità di prodotto per il prossimo calendario'}],
+  bestp:[['IG','Reel: tavole impianti in 20 secondi','28k visualizzazioni · 6,8% engagement'],['TT','Render AI da screenshot','15k visualizzazioni · 5,9% engagement'],['IG','Carousel: 3 errori nel computo','1,1k salvataggi']],
+  learn:'Le demo con schermo reale e risultato nei primi 2 secondi rendono il triplo degli annunci di novità. Dalla prossima settimana riduco gli annunci e faccio una demo a settimana, sempre con un progetto vero.',
+  qs:['Chi è il cliente ideale (studi piccoli, singoli professionisti, imprese)?','Quale prodotto vuoi spingere per primo?','Quale problema risolvono i tuoi programmi che gli altri non risolvono?','Che tono vuoi: tecnico, ironico, minimale come il brand?','Cosa non si può dire o mostrare (prezzi, dati dei clienti, funzioni in sviluppo)?','Qual è l\'obiettivo dei social: prove gratuite, richieste di demo, community?']
+ }
+};
+var TYPES={
+ video:{label:'Video / Reel',opts:[['IG','Reel'],['TT','Video breve'],['YT','Short']]},
+ carousel:{label:'Carousel',opts:[['IG','Carousel']]},
+ post:{label:'Post con foto',opts:[['IG','Post']]},
+ storia:{label:'Storia',opts:[['IG','Storia']]},
+ pin:{label:'Pin',opts:[['PN','Pin']]}
+};
+
+/* ---------- stato ---------- */
+var cur='studio',nid=100,W={};
+var ST={};
+Object.keys(PR).forEach(function(k){
+  var n=0;
+  ST[k]={
+    posts:PR[k].posts.map(function(x){n++;return {id:k+n,d:addD(x.d),h:x.h,p:x.p,f:x.f,t:x.t,st:x.st}}),
+    prop:PR[k].prop.slice(),appr:[],
+    files:[],gen:false,ans:{},editing:{},newq:PR[k].newq.slice(),learned:[]
+  };
+});
+
+/* ---------- navigazione ---------- */
+function go(v){
+  document.querySelectorAll('.view').forEach(function(x){x.classList.toggle('on',x.id==='v-'+v)});
+  document.querySelectorAll('.tab').forEach(function(x){x.classList.toggle('on',x.dataset.v===v)});
+  if(v==='mercato')animBars();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+document.querySelectorAll('.tab').forEach(function(b){b.onclick=function(){go(b.dataset.v)}});
+document.querySelectorAll('#profsel button').forEach(function(b){b.onclick=function(){
+  cur=b.dataset.p;
+  document.querySelectorAll('#profsel button').forEach(function(x){x.classList.toggle('on',x===b)});
+  W={};renderAll();startChat();toast('Profilo attivo: '+PR[cur].name)}});
+$('fab').onclick=function(){$('chat').classList.add('open')};
+$('chx').onclick=function(){$('chat').classList.remove('open')};
+
+/* ---------- numeri animati ---------- */
+function animNum(el,target){
+  var s=String(target),dec=s.indexOf(',')>=0?s.split(',')[1].replace(/\D/g,'').length:0;
+  var suf=(s.match(/[^\d.,]+$/)||[''])[0],num=parseFloat(s.replace(/\./g,'').replace(',','.'));
+  if(isNaN(num)){el.textContent=s;return}
+  var t0=null,dur=900*SPEED+1;
+  function f(ts){if(!t0)t0=ts;var p=Math.min(1,(ts-t0)/dur),e=1-Math.pow(1-p,3),v=num*e;
+    el.textContent=v.toLocaleString('it-IT',{minimumFractionDigits:dec,maximumFractionDigits:dec})+suf;
+    if(p<1)requestAnimationFrame(f)}
+  requestAnimationFrame(f);
+}
+function animBars(){setTimeout(function(){document.querySelectorAll('.bar i[data-w]').forEach(function(i){i.style.width=i.dataset.w+'%'})},60)}
+
+/* ---------- render delle viste ---------- */
+function pillFor(s){return s==='programmato'?'<span class="pill ok">programmato</span>':s==='pubblicato'?'<span class="pill pub">pubblicato</span>':'<span class="pill wa">da approvare</span>'}
+function sorted(){return ST[cur].posts.slice().sort(function(a,b){return a.d-b.d||a.h.localeCompare(b.h)})}
+function renderAll(){
+  var P=PR[cur],L=sorted();
+  $('oggi-title').innerHTML='Ciao, '+esc(P.name.replace('Desearq ','Desearq <em>'))+'</em>';
+  $('oggi-lead').textContent=P.lead;
+  animNum($('k-fol'),P.kpi[0]);animNum($('k-eng'),P.kpi[2]);
+  $('k-fold').textContent=P.kpi[1];$('k-engd').textContent=P.kpi[3];
+  $('k-prog').textContent=L.filter(function(x){return x.st==='programmato'}).length;
+  $('k-app').textContent=L.filter(function(x){return x.st==='da approvare'}).length;
+  $('advice').innerHTML='<b>Agente · '+esc(P.name)+'</b>'+esc(P.advice);
+  $('next-list').innerHTML=L.slice(0,4).map(function(x){
+    return '<div class="row"><span class="pf '+x.p+'">'+x.p+'</span><div class="grow"><div class="t">'+esc(x.t)+'</div><div class="m">'+fd(x.d)+' · '+x.h+' · '+x.f+'</div></div>'+pillFor(x.st)+'</div>'}).join('')||'<div class="m">Nessuna uscita</div>';
+  renderNewq();renderCal(L);renderMercato();renderIdee();renderRis();renderKn();renderCrea();
+  var nq=ST[cur].newq.length;$('fabbd').style.display=nq?'flex':'none';$('fabbd').textContent=nq;
+}
+function renderNewq(){
+  var S=ST[cur];
+  $('newq').innerHTML=S.newq.map(function(x,i){
+    return '<div class="qa"><div class="src">Perché lo chiedo: '+esc(x.why)+'</div><div class="q">'+esc(x.q)+'</div><textarea id="nq'+i+'" placeholder="Scrivi la risposta"></textarea><div style="margin-top:10px"><button class="btn sm" data-n="'+i+'">Salva nel profilo</button> <button class="btn sm ghost" data-k="'+i+'">Non ora</button></div></div>'}).join('')||'<div class="m">Nessuna domanda per ora. L\'agente ne farà di nuove dopo i risultati dei post, a fine mese o quando finiscono i contenuti.</div>';
+  document.querySelectorAll('#newq [data-n]').forEach(function(b){b.onclick=function(){
+    var S=ST[cur],i=+b.dataset.n,v=$('nq'+i).value.trim();if(!v){toast('Scrivi una risposta');return}
+    S.learned.push({q:S.newq[i].q,a:v});S.newq.splice(i,1);renderAll();toast('Profilo aggiornato')}});
+  document.querySelectorAll('#newq [data-k]').forEach(function(b){b.onclick=function(){
+    ST[cur].newq.splice(+b.dataset.k,1);renderAll();toast('Chiederò più avanti')}});
+}
+function renderCal(L){
+  var w='';
+  for(var i=0;i<7;i++){var d=addD(i);
+    var ev=L.filter(function(x){return x.d.getTime()===d.getTime()}).map(function(x){return '<div class="ev '+x.p+(x.st==='da approvare'?' da':'')+'">'+x.h+'<br>'+esc(x.f)+'</div>'}).join('');
+    w+='<div class="day'+(i===0?' today':'')+'"><div class="dn">'+GG[d.getDay()]+'</div><div class="dd">'+d.getDate()+'</div>'+ev+'</div>'}
+  $('week').innerHTML=w;
+  $('cal-list').innerHTML=L.map(function(x){
+    var act=x.st==='da approvare'?'<button class="btn sm" data-a="ok" data-i="'+x.id+'">Approva</button> <button class="btn sm ghost" data-a="no" data-i="'+x.id+'">Rifiuta</button>':'<button class="btn sm ghost" data-a="no" data-i="'+x.id+'">Rimuovi</button>';
+    return '<div class="row" style="flex-wrap:wrap"><span class="pf '+x.p+'">'+x.p+'</span><div class="grow"><div class="t">'+esc(x.t)+'</div><div class="m">'+fd(x.d)+' · '+x.h+' · '+PF[x.p]+' · '+x.f+'</div></div>'+pillFor(x.st)+'<div style="width:100%;padding-left:46px">'+act+'</div></div>'}).join('')||'<div class="m">Calendario vuoto</div>';
+  document.querySelectorAll('#cal-list [data-a]').forEach(function(b){b.onclick=function(){
+    var id=b.dataset.i,S=ST[cur],x=S.posts.filter(function(y){return y.id===id})[0];
+    if(b.dataset.a==='ok'){x.st='programmato';toast('Approvato e programmato');confetti(60)}
+    else{S.posts=S.posts.filter(function(y){return y.id!==id});toast('Rimosso')}
+    renderAll()}});
+}
+function renderMercato(){
+  var P=PR[cur],S=ST[cur];
+  $('mer-lead').textContent='Analisi di profili grandi e concorrenti per '+P.name+'. L\'agente propone, tu approvi cosa seguire.';
+  $('prop-list').innerHTML=S.prop.map(function(x){
+    return '<div class="row" style="flex-wrap:wrap"><span class="pf '+x.pf+'">'+x.pf+'</span><div class="grow"><div class="t">'+esc(x.h)+' · '+esc(x.d)+'</div><div class="m">'+esc(x.why)+'</div></div><span class="pill ok">'+esc(x.st)+'</span><div style="width:100%;padding-left:46px"><button class="btn sm" data-a="y" data-i="'+x.id+'">Segui</button> <button class="btn sm ghost" data-a="n" data-i="'+x.id+'">Scarta</button></div></div>'}).join('')||'<div class="m">Nessuna nuova proposta. L\'agente ne cercherà altri.</div>';
+  document.querySelectorAll('#prop-list [data-a]').forEach(function(b){b.onclick=function(){
+    var S=ST[cur],x=S.prop.filter(function(y){return y.id===b.dataset.i})[0];
+    S.prop=S.prop.filter(function(y){return y!==x});
+    if(b.dataset.a==='y'){S.appr.push(x);toast('Profilo aggiunto al monitoraggio')}else toast('Scartato');
+    renderMercato();animBars()}});
+  $('appr-list').innerHTML=S.appr.map(function(x){
+    return '<div class="row"><span class="pf '+x.pf+'">'+x.pf+'</span><div class="grow"><div class="t">'+esc(x.h)+' · '+esc(x.d)+'</div><div class="m">Analisi giornaliera attiva</div></div><span class="pill pub">monitorato</span></div>'}).join('')||'<div class="m">Nessun profilo approvato: finché non approvi, l\'agente non analizza nessun account.</div>';
+  $('schemi').innerHTML=S.appr.length?'<h3>Cosa li fa funzionare</h3><div class="agent"><b>Agente · analisi dei top post</b>'+esc(P.schemi)+' Li adatto al tono '+esc(P.tono)+' di '+esc(P.name)+', senza copiare nessun contenuto.</div>':'';
+  $('comp-tab').innerHTML='<tr><th>Profilo</th><th>Follower</th><th>Post/sett.</th><th>Engag.</th><th>Formato forte</th></tr>'+P.comp.map(function(r){return '<tr><td>'+r[0]+'</td><td>'+r[1]+'</td><td>'+r[2]+'</td><td>'+r[3]+'</td><td>'+r[4]+'</td></tr>'}).join('');
+  $('formats').innerHTML=P.formats.map(function(r){return '<div class="row"><div class="grow"><div class="t">'+r[0]+'</div><div class="bar"><i data-w="'+r[1]+'"></i></div></div><span class="m">'+r[1]+'</span></div>'}).join('');
+  $('trends').innerHTML=P.trends.map(function(r){return '<div class="row"><div class="grow"><div class="t">'+r[0]+'</div><div class="m">'+r[1]+'</div></div><span class="pill'+(r[3]?' ok':'')+'">'+r[2]+'</span></div>'}).join('');
+}
+function renderIdee(){
+  $('idee-list').innerHTML=PR[cur].ideas.map(function(x,i){
+    return '<div class="row"><span class="pf '+x.p+'">'+x.p+'</span><div class="grow"><div class="t">'+esc(x.t)+'</div><div class="m">'+esc(x.w)+'</div></div><span class="score" title="Potenziale virale">'+x.s+'</span><button class="btn sm" data-i="'+i+'">Crea</button></div>'}).join('');
+  document.querySelectorAll('#idee-list button').forEach(function(b){b.onclick=function(){fromIdea(PR[cur].ideas[+b.dataset.i])}});
+}
+function renderRis(){
+  var P=PR[cur];
+  $('best').innerHTML=P.bestp.map(function(r){return '<div class="row"><span class="pf '+r[0]+'">'+r[0]+'</span><div class="grow"><div class="t">'+esc(r[1])+'</div><div class="m">'+esc(r[2])+'</div></div></div>'}).join('');
+  $('learn').innerHTML='<b>Agente · apprendimento</b>'+esc(P.learn);
+  var v=P.series,Wd=640,H=230,pl=46,pb=30,pt=18,pr=16;
+  var mn=Math.floor(Math.min.apply(null,v)/100)*100-100,mx=Math.ceil(Math.max.apply(null,v)/100)*100+100;
+  var x=function(i){return pl+i*(Wd-pl-pr)/(v.length-1)},y=function(a){return pt+(1-(a-mn)/(mx-mn))*(H-pt-pb)};
+  var s='<defs><linearGradient id="lg" x1="0" x2="1"><stop offset="0" stop-color="#6e2635"/><stop offset="1" stop-color="#e0566f"/></linearGradient><linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6e2635" stop-opacity=".28"/><stop offset="1" stop-color="#6e2635" stop-opacity="0"/></linearGradient></defs>';
+  [0,1,2,3].forEach(function(k){var g=Math.round((mn+(mx-mn)*k/3)/10)*10;s+='<line x1="'+pl+'" x2="'+(Wd-pr)+'" y1="'+y(g)+'" y2="'+y(g)+'" stroke="rgba(20,17,43,.08)"/><text x="'+(pl-8)+'" y="'+(y(g)+4)+'" font-size="11" text-anchor="end" fill="#6d688a">'+g+'</text>'});
+  var line=v.map(function(a,i){return (i?'L':'M')+x(i)+' '+y(a)}).join(' ');
+  s+='<path d="'+line+' L'+x(v.length-1)+' '+(H-pb)+' L'+x(0)+' '+(H-pb)+' Z" fill="url(#ag)"/>';
+  s+='<path id="ln" d="'+line+'" fill="none" stroke="url(#lg)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1" style="animation:draw 1.6s .2s forwards"/>';
+  v.forEach(function(a,i){s+='<circle cx="'+x(i)+'" cy="'+y(a)+'" r="4.5" fill="#fff" stroke="#6e2635" stroke-width="2.5"/><text x="'+x(i)+'" y="'+(H-9)+'" font-size="11" text-anchor="middle" fill="#6d688a">S'+(i+1)+'</text>'});
+  s+='<text x="'+x(7)+'" y="'+(y(v[7])-12)+'" font-size="13" font-weight="600" text-anchor="end" fill="#14112B">'+v[7].toLocaleString('it-IT')+' follower</text>';
+  $('chart').innerHTML=s;
+}
+(function(){var st=document.createElement('style');st.textContent='@keyframes draw{to{stroke-dashoffset:0}}';document.head.appendChild(st)})();
+(function(){var h='<div></div>';
+  ['L','M','M','G','V','S','D'].forEach(function(d){h+='<div class="h">'+d+'</div>'});
+  [['08',[1,1,1,1,1,2,2]],['12',[2,3,2,3,2,3,3]],['19',[3,3,3,5,4,3,2]],['21',[2,2,3,3,3,2,1]]].forEach(function(r){
+    h+='<div class="h" style="text-align:right;padding-right:4px">'+r[0]+'</div>';
+    r[1].forEach(function(v){h+='<div class="c" style="background:rgba(110,38,53,'+(0.08+v*0.17)+')"></div>'})});
+  $('heat').innerHTML=h})();
+
+/* ---------- anteprima (Crea) ---------- */
+function renderCrea(){
+  var R=W.result,b=$('crea-body');
+  if(!R){
+    b.innerHTML='<div class="card empty"><div class="orb"></div><div class="t" style="font-size:20px">Pronto quando vuoi</div><div class="m" style="max-width:340px;margin:6px auto 0">Parla con l\'assistente: scegli il tipo di contenuto, il social e il tema, e qui compare l\'anteprima.</div></div>';
+    return;
+  }
+  var ratio=(R.f==='Carousel'||R.f==='Post')?'4/5':(R.f==='Pin'?'2/3':'9/16');
+  var shim=R.loading?'<div class="shim"></div>':'';
+  var phone='<div class="phonewrap"><div class="phone"><div class="screen '+R.p+'" style="aspect-ratio:'+ratio+'">'+shim+'<div class="tag">'+esc(PF[R.p])+' · '+esc(R.f)+'</div><div class="side"><i></i><i></i><i></i></div>'+
+    (R.loading?'':'<div class="hk">'+esc(R.c.hook)+'</div><div class="cp">'+esc(R.cap)+'</div>')+'</div></div></div>';
+  var det='';
+  if(!R.loading){
+    var sc=(R.f==='Carousel')?'Slide':(R.f==='Post'||R.f==='Pin'||R.f==='Idea Pin')?'':'Scena';
+    det='<div class="card"><div class="m" style="margin:0">'+esc(PR[cur].name)+' · tono '+esc(PR[cur].tono)+' · materiale: '+esc(R.mat||'da definire')+'</div>'+
+      '<h3 style="margin-top:14px">Hook · primi 2 secondi</h3><div class="t" style="font-size:20px">'+esc(R.c.hook)+'</div>'+
+      (sc?'<h3>Script scena per scena</h3>'+R.c.scene.map(function(s,i){return '<div class="scn"><span>'+sc+' '+(i+1)+'</span><div>'+esc(s)+'</div></div>'}).join(''):'')+
+      '<h3>Caption</h3><div class="t" style="font-weight:400">'+esc(R.cap)+'</div><h3>Hashtag</h3><div class="t" style="font-weight:400;color:var(--vio)">'+esc(R.c.tags)+'</div>'+
+      '<h3>Visual</h3><div class="m">Qui l\'agente genera immagini e clip a partire dai tuoi render e dalle foto di cantiere. In questo prototipo vedi solo il testo.</div>'+
+      (W.when?'<div class="when"><div><div class="m" style="margin:0">'+(W.confirmed?'Programmato per':'Consigliato')+'</div><div class="big">'+fd(W.when.d)+' · '+W.when.h+'</div></div></div>':'')+'</div>';
+  }
+  b.innerHTML='<div class="stage">'+phone+'<div>'+det+'</div></div>';
+}
+
+/* ---------- confetti ---------- */
+function confetti(n){
+  var c=$('cf'),x=c.getContext('2d');c.width=innerWidth;c.height=innerHeight;
+  var cols=['#6e2635','#e0566f','#C8F33A','#FFB84D','#FF6B5E','#FFB84D'],P=[];
+  for(var i=0;i<n;i++)P.push({x:innerWidth/2+(Math.random()-.5)*200,y:innerHeight*.6,vx:(Math.random()-.5)*14,vy:-Math.random()*16-4,s:Math.random()*8+4,c:cols[i%cols.length],r:Math.random()*6,vr:(Math.random()-.5)*.4});
+  var t0=null;
+  function f(ts){if(!t0)t0=ts;var e=ts-t0;x.clearRect(0,0,c.width,c.height);
+    P.forEach(function(p){p.vy+=.45;p.x+=p.vx;p.y+=p.vy;p.r+=p.vr;x.save();x.translate(p.x,p.y);x.rotate(p.r);x.fillStyle=p.c;x.globalAlpha=Math.max(0,1-e/1700);x.fillRect(-p.s/2,-p.s/2,p.s,p.s*.6);x.restore()});
+    if(e<1700)requestAnimationFrame(f);else x.clearRect(0,0,c.width,c.height)}
+  requestAnimationFrame(f);
+}
+
+/* ---------- chat con l'omino ---------- */
+var busy=false,quickDefs=[];
+function scrollMsgs(){var m=$('msgs');m.scrollTop=m.scrollHeight}
+function addMsg(who,html){var d=document.createElement('div');d.className='msg '+who;d.innerHTML=html;$('msgs').appendChild(d);scrollMsgs();return d}
+async function say(html){
+  busy=true;setQuick([]);
+  var t=document.createElement('div');t.className='msg bot typing';t.innerHTML='<i></i><i></i><i></i>';$('msgs').appendChild(t);scrollMsgs();
+  await sleep(450+Math.min(900,html.length*6));
+  t.remove();var m=addMsg('bot',html);busy=false;return m;
+}
+function setQuick(defs){
+  quickDefs=defs;var q=$('quick');q.innerHTML='';
+  defs.forEach(function(d,i){var b=document.createElement('button');b.className='qb'+(d.main?' main':'');b.textContent=d.label;b.style.animationDelay=(i*60)+'ms';b.onclick=function(){if(busy)return;pick(d)};q.appendChild(b)});
+  scrollMsgs();
+}
+function pick(d){addMsg('me',esc(d.label));setQuick([]);d.fn()}
+async function startChat(){
+  $('msgs').innerHTML='';W={};renderCrea();
+  $('chprof').textContent='Profilo attivo: '+PR[cur].name;
+  await say('Ciao Nicola! Sono qui per aiutarti con <b>'+esc(PR[cur].name)+'</b>. Cosa vuoi creare oggi?');
+  askType();
+}
+function askType(){
+  setQuick(Object.keys(TYPES).map(function(k){return {label:TYPES[k].label,fn:function(){W.type=k;askSocial()}}}));
+}
+async function askSocial(){
+  var o=TYPES[W.type].opts;
+  if(o.length===1){W.p=o[0][0];W.f=o[0][1];await say('Per questo formato uso <b>'+PF[W.p]+'</b>.');return askTema()}
+  await say('Per quale social?');
+  setQuick(o.map(function(x){return {label:PF[x[0]]+' · '+x[1],fn:function(){W.p=x[0];W.f=x[1];askTema()}}}));
+}
+async function askTema(){
+  await say('Su cosa vuoi puntare? Questi sono i temi più forti per '+esc(PR[cur].name)+' in questo momento.');
+  var d=PR[cur].temi.map(function(t,i){return {label:t,fn:function(){W.tema=i;askMat()}}});
+  d.push({label:'Lo scrivo io',fn:async function(){W.await='tema';await say('Dimmi in una riga di cosa si tratta.')}});
+  setQuick(d);
+}
+async function askMat(){
+  await say('Hai del materiale da usare?');
+  var set=function(m){return function(){W.mat=m;generate()}};
+  setQuick([{label:'Un mio render',fn:set('un tuo render')},{label:'Foto di cantiere',fn:set('foto di cantiere')},{label:'Genera tu le immagini',fn:set('immagini generate dall\'AI')},{label:'Solo testo',fn:set('solo testo')}]);
+}
+async function generate(){
+  var P=PR[cur],ti=W.tema==null?0:W.tema,c=P.copy[Math.min(ti,P.copy.length-1)];
+  var cap=c.cap+(W.note?' ('+W.note+')':'');
+  W.result={p:W.p,f:W.f,c:c,cap:cap,mat:W.mat,loading:true,t:P.temi[Math.min(ti,P.temi.length-1)]};
+  renderCrea();go('crea');
+  await say('Perfetto, ci lavoro. Guarda a destra: l\'anteprima prende forma.');
+  var steps=['Rileggo cosa so del profilo e del tono','Analizzo i top post del settore su questo tema','Scrivo hook, script e caption'];
+  for(var i=0;i<steps.length;i++){await say('<small style="color:var(--mut)">'+steps[i]+'…</small>')}
+  W.result.loading=false;renderCrea();
+  var m=await say('Ecco la bozza.<div class="rc"><small>Hook</small>'+esc(c.hook)+'</div><div class="rc"><small>Caption</small>'+esc(cap.length>130?cap.slice(0,130)+'…':cap)+'</div>');
+  if(window.innerWidth<980){setQuick([{label:'Vedi anteprima completa',main:true,fn:function(){$('chat').classList.remove('open');go('crea');setTimeout(recommend,0)}}]);}
+  else recommend();
+}
+function pickWhen(){
+  var best=PR[cur].best[W.p],S=ST[cur],i;
+  for(i=2;i<10;i++){var d=addD(i);var conf=S.posts.some(function(x){return x.p===W.p&&x.d.getTime()===d.getTime()});if(!conf)break}
+  var alt=[];
+  var other=best==='19:00'?'12:30':'19:00';
+  alt.push({d:addD(i),h:other});
+  alt.push({d:addD(i+1),h:best});
+  return {main:{d:addD(i),h:best,days:i},alt:alt};
+}
+async function recommend(){
+  var w=pickWhen();W.when=w.main;W.confirmed=false;renderCrea();
+  var rel=w.main.days===2?'tra due giorni':'tra '+w.main.days+' giorni';
+  await say('Quando lo pubblichi? Io ti consiglio <b>'+fd(w.main.d)+' alle '+w.main.h+'</b> ('+rel+'): è la fascia migliore per '+PF[W.p]+' e quel giorno non hai altri post su '+PF[W.p]+'.');
+  var defs=[{label:'Ok, programma',main:true,fn:function(){confirmWhen(w.main)}}];
+  w.alt.forEach(function(a){defs.push({label:'Meglio '+fd(a.d)+' '+a.h,fn:function(){confirmWhen(a)}})});
+  defs.push({label:'Non ora',fn:async function(){W.when=null;renderCrea();await say('Va bene, la bozza resta qui. Quando vuoi la programmi.');after()}});
+  setQuick(defs);
+}
+async function confirmWhen(w){
+  W.when=w;W.confirmed=true;
+  ST[cur].posts.push({id:cur+(nid++),d:w.d,h:w.h,p:W.p,f:W.f,t:W.result.t,st:'programmato'});
+  renderAll();confetti(130);
+  await say('Fatto! <b>'+esc(W.result.t)+'</b> è programmato per '+fd(w.d)+' alle '+w.h+' su '+PF[W.p]+'. Lo trovi nel calendario.');
+  after();
+}
+function after(){
+  var d=[];
+  if(W.type==='video'||W.type==='carousel'||W.type==='post'){
+    TYPES.video.opts.forEach(function(o){if(o[0]!==W.p&&W.type==='video')d.push({label:'Adatta per '+PF[o[0]],fn:function(){W.p=o[0];W.f=o[1];generate()}})});
+  }
+  d.push({label:'Vai al calendario',fn:function(){$('chat').classList.remove('open');go('cal');setTimeout(after2,0)}});
+  d.push({label:'Crea un altro contenuto',main:true,fn:function(){W={};renderCrea();say('Volentieri! Cosa vuoi creare adesso?').then(askType)}});
+  setQuick(d);
+}
+async function after2(){await say('Vuoi creare altro?');setQuick([{label:'Crea un altro contenuto',main:true,fn:function(){W={};renderCrea();say('Volentieri! Cosa vuoi creare adesso?').then(askType)}}])}
+function fromIdea(x){
+  W={type:x.type,p:x.p,f:x.f,tema:x.tema};
+  $('chat').classList.add('open');
+  addMsg('me','Voglio creare: '+esc(x.t));
+  setQuick([]);
+  say('Ottima idea. Parto da qui: <b>'+esc(x.t)+'</b> su '+PF[x.p]+'.').then(askMat);
+}
+
+/* testo libero */
+$('comp').onsubmit=async function(e){
+  e.preventDefault();var v=$('cin').value.trim();if(!v||busy)return;$('cin').value='';
+  addMsg('me',esc(v));
+  if(W.await==='tema'){W.await=null;W.tema=0;W.note=v;return askMat()}
+  var n=function(s){return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')},nv=n(v);
+  var hit=quickDefs.filter(function(d){var l=n(d.label);return nv.indexOf(l)>=0||l.indexOf(nv)>=0})[0];
+  if(hit){setQuick([]);return hit.fn()}
+  var map=[['reel','video'],['video','video'],['carousel','carousel'],['post','post'],['storia','storia'],['pin','pin']];
+  if(!W.type){
+    for(var i=0;i<map.length;i++){if(nv.indexOf(map[i][0])>=0){W.type=map[i][1];break}}
+    if(W.type){setQuick([]);return askSocial()}
+  }
+  await say('Nel prototipo capisco solo le scelte qui sotto. Nella versione vera capisco anche il testo libero e ti rispondo su tutto: progetti, idee, dati.');
+  setQuick(quickDefs);
+};
+
+/* ---------- conoscenza del profilo ---------- */
+function renderKn(){
+  var P=PR[cur],S=ST[cur],tot=P.qs.length,n=Object.keys(S.ans).length;
+  var pct=Math.min(100,Math.round((S.files.length?20:0)+(n/tot)*80));
+  $('prof-title').innerHTML='Profilo · <em>'+esc(P.name)+'</em>';
+  $('kn-pct').textContent=pct+'%';$('kn-bar').style.width=pct+'%';
+  $('kn-sub').textContent=S.files.length+' PDF caricati · '+n+' di '+tot+' domande con risposta';
+  $('files').innerHTML=S.files.map(function(f,i){return '<div class="file"><span class="pf PDF" style="width:30px;height:30px;font-size:9px">PDF</span><div class="grow">'+esc(f)+'</div><button class="btn sm ghost" data-r="'+i+'">Togli</button></div>'}).join('');
+  document.querySelectorAll('#files [data-r]').forEach(function(b){b.onclick=function(){ST[cur].files.splice(+b.dataset.r,1);renderKn()}});
+  $('kn-q-wrap').style.display=S.gen?'block':'none';
+  $('kn-sum-wrap').style.display=(n>0||S.learned.length)?'block':'none';
+  $('qlist').innerHTML=P.qs.map(function(q,i){
+    var a=S.ans[i],ed=S.editing[i]||a===undefined;
+    var src=S.files.length?'Dal PDF: '+esc(S.files[i%S.files.length]):'Domanda base';
+    var body=ed?'<textarea id="ta'+i+'" placeholder="Scrivi qui la tua risposta">'+esc(a||'')+'</textarea><div style="margin-top:10px"><button class="btn sm" data-s="'+i+'">Salva risposta</button></div>':'<div class="ans">'+esc(a)+'</div><div style="margin-top:10px"><button class="btn sm ghost" data-e="'+i+'">Modifica</button></div>';
+    return '<div class="qa"><div class="src">'+src+(a!==undefined&&!ed?' · <span style="color:#0d8a58">salvata</span>':'')+'</div><div class="q">'+esc(q)+'</div>'+body+'</div>'}).join('');
+  document.querySelectorAll('#qlist [data-s]').forEach(function(b){b.onclick=function(){
+    var i=+b.dataset.s,v=$('ta'+i).value.trim();if(!v){toast('Scrivi una risposta');return}
+    ST[cur].ans[i]=v;delete ST[cur].editing[i];renderKn();toast('Risposta salvata')}});
+  document.querySelectorAll('#qlist [data-e]').forEach(function(b){b.onclick=function(){ST[cur].editing[+b.dataset.e]=true;renderKn()}});
+  $('kn-sum').innerHTML='<b>Agente · cosa ho capito</b>Profilo: '+esc(P.name)+'. Target: '+esc(P.target)+'. Tono: '+esc(P.tono)+'.<br><br>Dalle tue risposte:<br>'+Object.keys(S.ans).map(function(i){return '• '+esc(S.ans[i].length>110?S.ans[i].slice(0,110)+'…':S.ans[i])}).join('<br>')+(S.learned.length?'<br><br>Aggiornamenti successivi:<br>'+S.learned.map(function(l){return '• '+esc(l.q.length>80?l.q.slice(0,80)+'…':l.q)+' → '+esc(l.a.length>90?l.a.slice(0,90)+'…':l.a)}).join('<br>'):'')+'<br><br>Userò queste informazioni in ogni idea, script e caption, solo per questo profilo.';
+}
+$('pdfin').onchange=function(e){
+  var S=ST[cur];Array.prototype.forEach.call(e.target.files,function(f){S.files.push(f.name)});
+  e.target.value='';renderKn();toast('PDF aggiunti');
+};
+$('mkq').onclick=function(){
+  var S=ST[cur];
+  if(!S.files.length){toast('Carica almeno un PDF');return}
+  S.gen=true;renderKn();toast('Domande generate');
+  $('kn-q-wrap').scrollIntoView({behavior:'smooth'});
+};
+
+renderAll();animBars();startChat();
+</script>
+</body>
+</html>
