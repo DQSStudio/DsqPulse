@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Desearq Social — Agente social media (prototipo)</title>
+<title>Desearq Social — Agente social media</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -209,7 +209,7 @@ svg text{font-family:'Outfit',sans-serif}
 <!-- INTERFACCIA -->
 <main class="main">
   <div class="top">
-    <div><div class="logo"><span>Social</span><sup>®</sup></div><div class="demo">by Desearq Lab · prototipo con dati di esempio</div></div>
+    <div><div class="logo"><span>Social</span><sup>®</sup></div><div class="demo">by Desearq Lab · versione in sviluppo</div></div>
     <div class="profsel" id="profsel"><button data-p="studio" class="on">Studio</button><button data-p="lab">Lab</button></div>
   </div>
   <div class="tabs" id="tabs">
@@ -300,7 +300,7 @@ svg text{font-family:'Outfit',sans-serif}
     </div>
     <div id="kn-q-wrap" style="display:none"><h3>2 · Rispondi alle domande</h3><div class="card" id="qlist"></div></div>
     <div id="kn-sum-wrap" style="display:none"><h3>3 · Cosa ha capito l'agente</h3><div class="agent" id="kn-sum"></div></div>
-    <p class="note">Le domande sono ancora di esempio e i PDF caricati qui non vengono ancora letti (quelli dello Studio sono già stati inseriti). Nella versione reale l'agente estrae il testo dei PDF e fa domande sulle informazioni mancanti o poco chiare. Il profilo non resta fermo: nuove domande arrivano in Oggi quando l'agente vede risultati inattesi, contenuti in esaurimento o novità, e ogni risposta lo aggiorna.</p>
+    <p class="note">Le domande sono quelle di base per ogni profilo. I PDF caricati qui non vengono ancora letti (quelli dello Studio sono già stati inseriti nel sistema).</p>
   </section>
 </main>
 </div>
@@ -584,7 +584,7 @@ function pillFor(s){return s==='programmato'?'<span class="pill ok">programmato<
 function sorted(){return ST[cur].posts.slice().sort(function(a,b){return a.d-b.d||a.h.localeCompare(b.h)})}
 function renderAll(){
   var P=PR[cur],L=sorted();
-  $('oggi-title').innerHTML='Ciao, '+esc(P.name.replace('Desearq ','Desearq <em>'))+'</em>';
+  $('oggi-title').innerHTML='Ciao, Desearq <em>'+esc(P.name.replace('Desearq ',''))+'</em>';
   $('oggi-lead').textContent=P.lead;
   var mi=(AN[cur].miei&&AN[cur].miei.stato==='pronta')?AN[cur].miei.dati:null;
   $('k-fol').textContent=mi?mi.followers.toLocaleString('it-IT'):'—';$('k-fold').textContent=mi?'@'+mi.username:'collega Instagram';
@@ -595,17 +595,18 @@ function renderAll(){
   $('next-list').innerHTML=L.slice(0,4).map(function(x){
     return '<div class="row"><span class="pf '+x.p+'">'+x.p+'</span><div class="grow"><div class="t">'+esc(x.t)+'</div><div class="m">'+fd(x.d)+' · '+x.h+' · '+x.f+'</div></div>'+pillFor(x.st)+'</div>'}).join('')||'<div class="m">Nessuna uscita</div>';
   renderNewq();renderCal(L);renderMercato();renderIdee();renderRis();renderKn();renderCrea();
-  var nq=ST[cur].newq.length;$('fabbd').style.display=nq?'flex':'none';$('fabbd').textContent=nq;
+  var nq=pend(cur).length;$('fabbd').style.display=nq?'flex':'none';$('fabbd').textContent=nq;
 }
+function pend(k){var S=ST[k],o=[];PR[k].qs.forEach(function(q,i){if(S.ans[i]===undefined&&!(S.skip&&S.skip[i]))o.push({q:q,i:i})});return o.slice(0,2)}
 function renderNewq(){
-  var S=ST[cur];
-  $('newq').innerHTML=S.newq.map(function(x,i){
-    return '<div class="qa"><div class="src">Perché lo chiedo: '+esc(x.why)+'</div><div class="q">'+esc(x.q)+'</div><textarea id="nq'+i+'" placeholder="Scrivi la risposta"></textarea><div style="margin-top:10px"><button class="btn sm" data-n="'+i+'">Salva nel profilo</button> <button class="btn sm ghost" data-k="'+i+'">Non ora</button></div></div>'}).join('')||'<div class="m">Nessuna domanda per ora. L\'agente ne farà di nuove dopo i risultati dei post, a fine mese o quando finiscono i contenuti.</div>';
+  var P=pend(cur);
+  $('newq').innerHTML=P.map(function(x,j){
+    return '<div class="qa"><div class="src">Perché lo chiedo: mi serve per scrivere testi più giusti per '+esc(PR[cur].name)+'</div><div class="q">'+esc(x.q)+'</div><textarea id="nq'+j+'" placeholder="Scrivi la risposta"></textarea><div style="margin-top:10px"><button class="btn sm" data-n="'+j+'">Salva nel profilo</button> <button class="btn sm ghost" data-k="'+j+'">Non ora</button></div></div>'}).join('')||'<div class="m">Per ora non ho altre domande. Ne farò di nuove man mano che conosco meglio il profilo.</div>';
   document.querySelectorAll('#newq [data-n]').forEach(function(b){b.onclick=function(){
-    var S=ST[cur],i=+b.dataset.n,v=$('nq'+i).value.trim();if(!v){toast('Scrivi una risposta');return}
-    var qq=S.newq[i].q;S.learned.push({q:qq,a:v});S.newq.splice(i,1);renderAll();saveAnswer(cur,qq,v).then(function(){toast('Profilo aggiornato')}).catch(function(e){toast('Non salvata: '+e.message)})}});
+    var S=ST[cur],x=P[+b.dataset.n],v=$('nq'+b.dataset.n).value.trim();if(!v){toast('Scrivi una risposta');return}
+    S.ans[x.i]=v;renderAll();saveAnswer(cur,x.q,v).then(function(){toast('Profilo aggiornato')}).catch(function(e){toast('Non salvata: '+e.message)})}});
   document.querySelectorAll('#newq [data-k]').forEach(function(b){b.onclick=function(){
-    ST[cur].newq.splice(+b.dataset.k,1);renderAll();toast('Chiederò più avanti')}});
+    var S=ST[cur];S.skip=S.skip||{};S.skip[P[+b.dataset.k].i]=true;renderAll();toast('Chiederò più avanti')}});
 }
 function renderCal(L){
   var w='';
@@ -642,7 +643,7 @@ function renderCrea(){
       '<h3 style="margin-top:14px">Hook · primi 2 secondi</h3><div class="t" style="font-size:20px">'+esc(R.c.hook)+'</div>'+
       (sc?'<h3>Script scena per scena</h3>'+R.c.scene.map(function(s,i){return '<div class="scn"><span>'+sc+' '+(i+1)+'</span><div>'+esc(s)+'</div></div>'}).join(''):'')+
       '<h3>Caption</h3><div class="t" style="font-weight:400">'+esc(R.cap)+'</div><h3>Hashtag</h3><div class="t" style="font-weight:400;color:var(--vio)">'+esc(R.c.tags)+'</div>'+
-      '<h3>Visual</h3><div class="m">Qui l\'agente genera immagini e clip a partire dai tuoi render e dalle foto di cantiere. In questo prototipo vedi solo il testo.</div>'+
+      '<h3>Visual</h3><div class="m">Qui l\'agente genera immagini e clip a partire dai tuoi render e dalle foto di cantiere. Per ora l\'agente genera solo i testi: immagini e video arrivano nella prossima fase.</div>'+
       (W.when?'<div class="when"><div><div class="m" style="margin:0">'+(W.confirmed?'Programmato per':'Consigliato')+'</div><div class="big">'+fd(W.when.d)+' · '+W.when.h+'</div></div></div>':'')+'</div>';
   }
   b.innerHTML='<div class="stage">'+phone+'<div>'+det+'</div></div>';
@@ -778,7 +779,7 @@ $('comp').onsubmit=async function(e){
     for(var i=0;i<map.length;i++){if(nv.indexOf(map[i][0])>=0){W.type=map[i][1];break}}
     if(W.type){setQuick([]);return askSocial()}
   }
-  await say('Nel prototipo capisco solo le scelte qui sotto. Nella versione vera capisco anche il testo libero e ti rispondo su tutto: progetti, idee, dati.');
+  await say('Per ora capisco solo le scelte qui sotto. Il testo libero lo gestirò più avanti.');
   setQuick(quickDefs);
 };
 
