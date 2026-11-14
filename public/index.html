@@ -431,6 +431,53 @@ Object.keys(PR).forEach(function(k){
   };
 });
 
+
+/* ---------- dati reali (Supabase) + login ---------- */
+var SB='https://qudoygcfphqhhyenpwlr.supabase.co',SBK='sb_publishable_JuOo4pGtRT_C0Wq7dYOE8Q_XpIRFOEX',ORG='d0000000-0000-4000-8000-0000000000d5',AUTH=null;
+try{AUTH=JSON.parse(localStorage.getItem('pulse_auth')||'null')}catch(e){}
+function authSave(){try{localStorage.setItem('pulse_auth',JSON.stringify(AUTH))}catch(e){}}
+async function authTok(body,grant){
+  var r=await fetch(SB+'/auth/v1/token?grant_type='+grant,{method:'POST',headers:{apikey:SBK,'content-type':'application/json'},body:JSON.stringify(body)});
+  var j=await r.json();if(!r.ok)throw new Error(j.error_description||j.msg||'Accesso non riuscito');
+  AUTH={access:j.access_token,refresh:j.refresh_token};authSave();return j;
+}
+async function sbq(path,opt,retry){
+  opt=opt||{};var h={apikey:SBK,Authorization:'Bearer '+(AUTH&&AUTH.access),'content-type':'application/json',Prefer:'return=representation'};
+  var r=await fetch(SB+'/rest/v1/'+path,{method:opt.method||'GET',headers:h,body:opt.body?JSON.stringify(opt.body):undefined});
+  if(r.status===401&&!retry&&AUTH&&AUTH.refresh){try{await authTok({refresh_token:AUTH.refresh},'refresh_token');return sbq(path,opt,true)}catch(e){AUTH=null;authSave();showLogin();throw e}}
+  var t=await r.text();var j=t?JSON.parse(t):null;if(!r.ok)throw new Error((j&&j.message)||'Errore dati');return j;
+}
+function toDT(d,h){var x=new Date(d),p=h.split(':');x.setHours(+p[0],+p[1],0,0);return x.toISOString()}
+function fromRow(r){var q=new Date(r.quando||r.creato_il),d=new Date(q);d.setHours(0,0,0,0);
+  return {id:r.id,d:d,h:('0'+q.getHours()).slice(-2)+':'+('0'+q.getMinutes()).slice(-2),p:r.piattaforma,f:r.formato,t:r.tema,st:r.stato==='programmato'?'programmato':r.stato==='bozza'?'da approvare':r.stato}}
+async function loadAll(){
+  Object.keys(PR).forEach(function(k){var S=ST[k];S.posts=[];S.ans={};S.learned=[]});
+  var c=await sbq('pulse_contenuti?select=*&order=quando.asc');
+  c.forEach(function(r){if(ST[r.profilo])ST[r.profilo].posts.push(fromRow(r))});
+  var a=await sbq('pulse_risposte?select=*&order=creato_il.asc');
+  a.forEach(function(r){var S=ST[r.profilo];if(!S)return;var i=PR[r.profilo].qs.indexOf(r.domanda);
+    if(i>=0)S.ans[i]=r.risposta;else S.learned.push({q:r.domanda,a:r.risposta})});
+}
+async function saveAnswer(prof,q,v){
+  await sbq('pulse_risposte?profilo=eq.'+prof+'&domanda=eq.'+encodeURIComponent(q),{method:'DELETE'});
+  await sbq('pulse_risposte',{method:'POST',body:{org_id:ORG,profilo:prof,domanda:q,risposta:v}});
+}
+function memoria(k){var S=ST[k],o=[];Object.keys(S.ans).forEach(function(i){o.push({q:PR[k].qs[i],a:S.ans[i]})});S.learned.forEach(function(x){o.push(x)});return o.slice(-25)}
+function showLogin(){
+  var o=$('login');if(!o){o=document.createElement('div');o.id='login';
+    o.style.cssText='position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#3d1119,#6e2635);padding:20px';
+    o.innerHTML='<form id="lf" style="background:#fff;border-radius:22px;padding:28px;max-width:360px;width:100%;box-shadow:0 30px 80px -20px rgba(0,0,0,.5);text-align:center"><div class="orb" style="width:96px;height:96px;margin:0 auto 10px;background-image:url(assets/omino.png)"></div><div style="font-weight:800;font-size:22px;color:#3d1119">DSQ Pulse</div><div style="color:#777;font-size:14px;margin:4px 0 18px">Accedi con il tuo account Desearq</div><input id="lem" type="email" placeholder="Email" autocomplete="username" style="width:100%;padding:13px;border:1px solid #ddd;border-radius:12px;margin-bottom:10px;font-size:16px"><input id="lpw" type="password" placeholder="Password" autocomplete="current-password" style="width:100%;padding:13px;border:1px solid #ddd;border-radius:12px;margin-bottom:12px;font-size:16px"><button class="btn" style="width:100%" id="lbt">Entra</button><div id="lerr" style="color:#c0392b;font-size:13px;margin-top:10px;min-height:16px"></div></form>';
+    document.body.appendChild(o);
+    $('lf').onsubmit=async function(e){e.preventDefault();$('lerr').textContent='';$('lbt').disabled=true;
+      try{await authTok({email:$('lem').value.trim(),password:$('lpw').value},'password');await boot()}
+      catch(err){$('lerr').textContent=err.message;$('lbt').disabled=false}}}
+  o.style.display='flex';
+}
+async function boot(){
+  try{await loadAll();var o=$('login');if(o)o.style.display='none';renderAll()}
+  catch(e){if(!AUTH)showLogin();else{toast('Errore nel caricamento dati');var o2=$('login');if(o2)o2.style.display='none'}}
+}
+
 /* ---------- navigazione ---------- */
 function go(v){
   document.querySelectorAll('.view').forEach(function(x){x.classList.toggle('on',x.id==='v-'+v)});
@@ -482,7 +529,7 @@ function renderNewq(){
     return '<div class="qa"><div class="src">Perché lo chiedo: '+esc(x.why)+'</div><div class="q">'+esc(x.q)+'</div><textarea id="nq'+i+'" placeholder="Scrivi la risposta"></textarea><div style="margin-top:10px"><button class="btn sm" data-n="'+i+'">Salva nel profilo</button> <button class="btn sm ghost" data-k="'+i+'">Non ora</button></div></div>'}).join('')||'<div class="m">Nessuna domanda per ora. L\'agente ne farà di nuove dopo i risultati dei post, a fine mese o quando finiscono i contenuti.</div>';
   document.querySelectorAll('#newq [data-n]').forEach(function(b){b.onclick=function(){
     var S=ST[cur],i=+b.dataset.n,v=$('nq'+i).value.trim();if(!v){toast('Scrivi una risposta');return}
-    S.learned.push({q:S.newq[i].q,a:v});S.newq.splice(i,1);renderAll();toast('Profilo aggiornato')}});
+    var qq=S.newq[i].q;S.learned.push({q:qq,a:v});S.newq.splice(i,1);renderAll();saveAnswer(cur,qq,v).then(function(){toast('Profilo aggiornato')}).catch(function(e){toast('Non salvata: '+e.message)})}});
   document.querySelectorAll('#newq [data-k]').forEach(function(b){b.onclick=function(){
     ST[cur].newq.splice(+b.dataset.k,1);renderAll();toast('Chiederò più avanti')}});
 }
@@ -497,8 +544,8 @@ function renderCal(L){
     return '<div class="row" style="flex-wrap:wrap"><span class="pf '+x.p+'">'+x.p+'</span><div class="grow"><div class="t">'+esc(x.t)+'</div><div class="m">'+fd(x.d)+' · '+x.h+' · '+PF[x.p]+' · '+x.f+'</div></div>'+pillFor(x.st)+'<div style="width:100%;padding-left:46px">'+act+'</div></div>'}).join('')||'<div class="m">Calendario vuoto</div>';
   document.querySelectorAll('#cal-list [data-a]').forEach(function(b){b.onclick=function(){
     var id=b.dataset.i,S=ST[cur],x=S.posts.filter(function(y){return y.id===id})[0];
-    if(b.dataset.a==='ok'){x.st='programmato';toast('Approvato e programmato');confetti(60)}
-    else{S.posts=S.posts.filter(function(y){return y.id!==id});toast('Rimosso')}
+    if(b.dataset.a==='ok'){x.st='programmato';sbq('pulse_contenuti?id=eq.'+id,{method:'PATCH',body:{stato:'programmato'}}).catch(function(){});toast('Approvato e programmato');confetti(60)}
+    else{S.posts=S.posts.filter(function(y){return y.id!==id});sbq('pulse_contenuti?id=eq.'+id,{method:'DELETE'}).catch(function(){});toast('Rimosso')}
     renderAll()}});
 }
 function renderMercato(){
@@ -634,7 +681,7 @@ async function generate(){
   var steps=['Rileggo cosa so del profilo e del tono','Analizzo i top post del settore su questo tema','Scrivo hook, script e caption'];
   for(var i=0;i<steps.length;i++){await say('<small style="color:var(--mut)">'+steps[i]+'…</small>')}
   try{
-    var rr=await fetch('/.netlify/functions/generate',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({profilo:cur,brand:{name:P.name,lead:P.lead,tono:P.tono,target:P.target},tema:W.result.t,social:PF[W.p],formato:W.f,note:W.note||''})});
+    var rr=await fetch('/.netlify/functions/generate',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({risposte:memoria(cur),profilo:cur,brand:{name:P.name,lead:P.lead,tono:P.tono,target:P.target},tema:W.result.t,social:PF[W.p],formato:W.f,note:W.note||''})});
     if(rr.ok){var g=await rr.json();if(g&&g.hook&&g.cap){c={hook:g.hook,scene:(g.scene&&g.scene.length?g.scene:c.scene),cap:g.cap,tags:g.tags||c.tags};cap=c.cap;W.result.c=c;W.result.cap=cap;}}
   }catch(e){}
   W.result.loading=false;renderCrea();
@@ -662,7 +709,8 @@ async function recommend(){
 }
 async function confirmWhen(w){
   W.when=w;W.confirmed=true;
-  ST[cur].posts.push({id:cur+(nid++),d:w.d,h:w.h,p:W.p,f:W.f,t:W.result.t,st:'programmato'});
+  var np={id:cur+(nid++),d:w.d,h:w.h,p:W.p,f:W.f,t:W.result.t,st:'programmato'};ST[cur].posts.push(np);
+  try{var rc=W.result.c||{};var rr=await sbq('pulse_contenuti',{method:'POST',body:{org_id:ORG,profilo:cur,piattaforma:W.p,formato:W.f,tema:W.result.t,hook:rc.hook||null,scene:rc.scene||[],caption:W.result.cap||rc.cap||null,tags:rc.tags||null,stato:'programmato',quando:toDT(w.d,w.h)}});np.id=rr[0].id}catch(e){toast('Salvataggio non riuscito: '+e.message)}
   renderAll();confetti(130);
   await say('Fatto! <b>'+esc(W.result.t)+'</b> è programmato per '+fd(w.d)+' alle '+w.h+' su '+PF[W.p]+'. Lo trovi nel calendario.');
   after();
@@ -720,7 +768,7 @@ function renderKn(){
     return '<div class="qa"><div class="src">'+src+(a!==undefined&&!ed?' · <span style="color:#0d8a58">salvata</span>':'')+'</div><div class="q">'+esc(q)+'</div>'+body+'</div>'}).join('');
   document.querySelectorAll('#qlist [data-s]').forEach(function(b){b.onclick=function(){
     var i=+b.dataset.s,v=$('ta'+i).value.trim();if(!v){toast('Scrivi una risposta');return}
-    ST[cur].ans[i]=v;delete ST[cur].editing[i];renderKn();toast('Risposta salvata')}});
+    ST[cur].ans[i]=v;delete ST[cur].editing[i];renderKn();saveAnswer(cur,PR[cur].qs[i],v).then(function(){toast('Risposta salvata')}).catch(function(e){toast('Non salvata: '+e.message)})}});
   document.querySelectorAll('#qlist [data-e]').forEach(function(b){b.onclick=function(){ST[cur].editing[+b.dataset.e]=true;renderKn()}});
   $('kn-sum').innerHTML='<b>Agente · cosa ho capito</b>Profilo: '+esc(P.name)+'. Target: '+esc(P.target)+'. Tono: '+esc(P.tono)+'.<br><br>Dalle tue risposte:<br>'+Object.keys(S.ans).map(function(i){return '• '+esc(S.ans[i].length>110?S.ans[i].slice(0,110)+'…':S.ans[i])}).join('<br>')+(S.learned.length?'<br><br>Aggiornamenti successivi:<br>'+S.learned.map(function(l){return '• '+esc(l.q.length>80?l.q.slice(0,80)+'…':l.q)+' → '+esc(l.a.length>90?l.a.slice(0,90)+'…':l.a)}).join('<br>'):'')+'<br><br>Userò queste informazioni in ogni idea, script e caption, solo per questo profilo.';
 }
@@ -736,6 +784,7 @@ $('mkq').onclick=function(){
 };
 
 renderAll();animBars();startChat();
+if(AUTH&&AUTH.access){boot()}else{showLogin()}
 </script>
 </body>
 </html>
