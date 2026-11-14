@@ -633,6 +633,10 @@ async function generate(){
   await say('Perfetto, ci lavoro. Guarda a destra: l\'anteprima prende forma.');
   var steps=['Rileggo cosa so del profilo e del tono','Analizzo i top post del settore su questo tema','Scrivo hook, script e caption'];
   for(var i=0;i<steps.length;i++){await say('<small style="color:var(--mut)">'+steps[i]+'…</small>')}
+  try{
+    var rr=await fetch('/.netlify/functions/generate',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({brand:{name:P.name,lead:P.lead,tono:P.tono,target:P.target},tema:W.result.t,social:PF[W.p],formato:W.f,note:W.note||''})});
+    if(rr.ok){var g=await rr.json();if(g&&g.hook&&g.cap){c={hook:g.hook,scene:(g.scene&&g.scene.length?g.scene:c.scene),cap:g.cap,tags:g.tags||c.tags};cap=c.cap;W.result.c=c;W.result.cap=cap;}}
+  }catch(e){}
   W.result.loading=false;renderCrea();
   var m=await say('Ecco la bozza.<div class="rc"><small>Hook</small>'+esc(c.hook)+'</div><div class="rc"><small>Caption</small>'+esc(cap.length>130?cap.slice(0,130)+'…':cap)+'</div>');
   if(window.innerWidth<980){setQuick([{label:'Vedi anteprima completa',main:true,fn:function(){$('chat').classList.remove('open');go('crea');setTimeout(recommend,0)}}]);}
