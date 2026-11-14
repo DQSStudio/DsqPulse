@@ -298,6 +298,8 @@ svg text{font-family:'Outfit',sans-serif}
       <div class="meter"><i id="kn-bar" style="width:0%"></i></div>
       <div class="m" id="kn-sub"></div>
     </div>
+    <h3>Collegamento Instagram</h3>
+    <div class="card"><div class="m" id="ig-st" style="margin-bottom:10px">Controllo…</div><button class="btn" id="ig-btn">Collega Instagram</button></div>
     <h3>1 · Carica i documenti</h3>
     <div class="card">
       <label class="filebtn"><input type="file" id="pdfin" accept="application/pdf" multiple>Tocca per aggiungere PDF<br><span class="m">presentazioni, portfolio, brochure, listini, linee guida del brand</span></label>
@@ -306,7 +308,7 @@ svg text{font-family:'Outfit',sans-serif}
     </div>
     <div id="kn-q-wrap" style="display:none"><h3>2 · Rispondi alle domande</h3><div class="card" id="qlist"></div></div>
     <div id="kn-sum-wrap" style="display:none"><h3>3 · Cosa ha capito l'agente</h3><div class="agent" id="kn-sum"></div></div>
-    <p class="note">In questo prototipo le domande sono di esempio e i PDF non vengono letti. Nella versione reale l'agente estrae il testo dei PDF e fa domande sulle informazioni mancanti o poco chiare. Il profilo non resta fermo: nuove domande arrivano in Oggi quando l'agente vede risultati inattesi, contenuti in esaurimento o novità, e ogni risposta lo aggiorna.</p>
+    <p class="note">Le domande sono ancora di esempio e i PDF caricati qui non vengono ancora letti (quelli dello Studio sono già stati inseriti). Nella versione reale l'agente estrae il testo dei PDF e fa domande sulle informazioni mancanti o poco chiare. Il profilo non resta fermo: nuove domande arrivano in Oggi quando l'agente vede risultati inattesi, contenuti in esaurimento o novità, e ogni risposta lo aggiorna.</p>
   </section>
 </main>
 </div>
@@ -477,6 +479,22 @@ async function boot(){
   try{await loadAll();var o=$('login');if(o)o.style.display='none';renderAll()}
   catch(e){if(!AUTH)showLogin();else{toast('Errore nel caricamento dati');var o2=$('login');if(o2)o2.style.display='none'}}
 }
+
+
+async function igStato(){
+  var el=$('ig-st'),b=$('ig-btn');if(!el)return;
+  try{var r=await sbq('pulse_account_stato?profilo=eq.'+cur+'&select=ig_username');
+    if(r.length){el.innerHTML='Collegato: <b>@'+esc(r[0].ig_username||'?')+'</b>. I contenuti programmati partono da soli.';b.textContent='Ricollega'}
+    else{el.textContent='Non ancora collegato a '+PR[cur].name+'.';b.textContent='Collega Instagram'}}
+  catch(e){el.textContent='Stato non disponibile'}
+}
+document.addEventListener('click',async function(e){
+  if(e.target&&e.target.id==='ig-btn'){
+    e.target.disabled=true;
+    try{var r=await fetch('/.netlify/functions/ig-start',{method:'POST',headers:{'content-type':'application/json',Authorization:'Bearer '+AUTH.access},body:JSON.stringify({profilo:cur})});
+      var j=await r.json();if(!r.ok)throw new Error(j.error||'errore');location.href=j.url}
+    catch(err){toast('Collegamento non riuscito: '+err.message);e.target.disabled=false}}
+});
 
 /* ---------- navigazione ---------- */
 function go(v){
@@ -752,6 +770,7 @@ $('comp').onsubmit=async function(e){
 
 /* ---------- conoscenza del profilo ---------- */
 function renderKn(){
+  igStato();
   var P=PR[cur],S=ST[cur],tot=P.qs.length,n=Object.keys(S.ans).length;
   var pct=Math.min(100,Math.round((S.files.length?20:0)+(n/tot)*80));
   $('prof-title').innerHTML='Profilo · <em>'+esc(P.name)+'</em>';
