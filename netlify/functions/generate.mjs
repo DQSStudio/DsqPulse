@@ -22,12 +22,12 @@ Rispondi SOLO con JSON valido: {"hook":"prima frase che cattura","scene":["3-5 s
   const r = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-    body: JSON.stringify({ model: MODEL, max_tokens: 900, messages: [{ role: "user", content: prompt }] }),
+    body: JSON.stringify({ model: MODEL, max_tokens: 2000, messages: [{ role: "user", content: prompt }] }),
   });
   if (!r.ok) return Response.json({ error: "anthropic " + r.status, detail: (await r.text()).slice(0, 300) }, { status: 502 });
   const j = await r.json();
   const txt = (j.content || []).map((x) => x.text || "").join("");
   const m = txt.match(/\{[\s\S]*\}/);
   try { return Response.json(JSON.parse(m[0])); }
-  catch { return Response.json({ error: "risposta non leggibile" }, { status: 502 }); }
+  catch { return Response.json({ error: "risposta non leggibile", raw: txt.slice(0, 400), stop: j.stop_reason }, { status: 502 }); }
 };
