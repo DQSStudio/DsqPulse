@@ -468,7 +468,7 @@ function showLogin(){
   o.style.display='flex';
 }
 async function boot(){
-  try{await loadAll();await loadAnalisi();var o=$('login');if(o)o.style.display='none';renderAll()}
+  try{await loadAll();await loadAnalisi();var o=$('login');if(o)o.style.display='none';renderAll();autoMiei()}
   catch(e){if(!AUTH)showLogin();else{toast('Errore nel caricamento dati');var o2=$('login');if(o2)o2.style.display='none'}}
 }
 
@@ -514,6 +514,15 @@ document.addEventListener('click',async function(e){
       toast('Leggo i profili… ricarica tra un minuto');setTimeout(async function(){await loadAnalisi();renderMercato();renderRis();renderAll()},45000)}catch(err){toast('Non avviata: '+err.message)}
     e.target.disabled=false}
 });
+
+async function autoMiei(){
+  try{
+    var acc=await sbq('pulse_account_stato?select=profilo'),need=acc.filter(function(a){var m=AN[a.profilo]&&AN[a.profilo].miei;return !m||(Date.now()-new Date(m.aggiornato_il))>6*3600*1000});
+    if(!need.length)return;
+    need.forEach(function(a){fetch('/.netlify/functions/monitor-background',{method:'POST',headers:{'content-type':'application/json',Authorization:'Bearer '+AUTH.access},body:JSON.stringify({profilo:a.profilo})}).catch(function(){})});
+    var n=0,iv=setInterval(async function(){n++;await loadAnalisi();renderAll();if(n>8)clearInterval(iv)},8000);
+  }catch(e){}
+}
 function pct(x){return (x==null?'—':x+'%')}
 function renderMercato(){
   var P=PR[cur],A=AN[cur],m=A.mercato,T=A.top,list=SG[cur];
