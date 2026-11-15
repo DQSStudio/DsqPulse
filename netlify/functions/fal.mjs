@@ -11,10 +11,12 @@ async function dbg(m) { await consumo("ERR " + String(m).slice(0, 380), "debug",
 
 async function promptDa(istruzione, imgs = []) {
   const r = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: { "x-api-key": process.env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-    body: JSON.stringify({ model: MODEL, max_tokens: 500, messages: [{ role: "user", content: [...imgs, { type: "text", text: istruzione }] }] }) });
+    body: JSON.stringify({ model: MODEL, max_tokens: 3000, messages: [{ role: "user", content: [...imgs, { type: "text", text: istruzione }] }] }) });
   const j = await r.json(); await logUso("fal-prompt", MODEL, j.usage);
   if (!r.ok) throw new Error("anthropic " + r.status);
-  return (j.content || []).map((x) => x.text || "").join("").replace(/^["'\s]+|["'\s]+$/g, "").slice(0, 900);
+  const txt = (j.content || []).filter((x) => x.type === "text").map((x) => x.text || "").join("").replace(/^["'\s]+|["'\s]+$/g, "").slice(0, 1800);
+  if (txt.length < 3) { await dbg("prompt vuoto stop=" + j.stop_reason + " blocchi=" + (j.content || []).map((x) => x.type).join(",")); throw new Error("L'agente non ha scritto il prompt (" + (j.stop_reason || "vuoto") + "), riprova"); }
+  return txt;
 }
 
 export default async (req) => {
