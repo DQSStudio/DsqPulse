@@ -461,7 +461,7 @@ async function loadAll(){
   var a=await sbq('pulse_risposte?select=*&order=creato_il.asc');
   a.forEach(function(r){var S=ST[r.profilo];if(!S)return;var i=PR[r.profilo].qs.indexOf(r.domanda);
     if(i>=0)S.ans[i]=r.risposta;else S.learned.push({q:r.domanda,a:r.risposta})});
-  await loadKn();
+  await loadKn();await loadLib();
 }
 async function saveAnswer(prof,q,v){
   await sbq('pulse_risposte?profilo=eq.'+prof+'&domanda=eq.'+encodeURIComponent(q),{method:'DELETE'});
@@ -761,26 +761,55 @@ async function creaGrafica(v){
     else{var url=await drawGrafica(spec,giOf(cur),R.photoImg,R.f);R.gfx={spec:spec,url:url}}
     R.mediaUrl=null;R.mediaUrls=null;caricaCosto();
   }catch(e){toast('Grafica non riuscita: '+e.message)}
-  R.gfxBusy=false;renderCrea()}
+  R.gfxBusy=false;renderCrea();salvaLavoro()}
 async function ridisegna(){var R=W.result;if(!R||!R.gfx||R.gfx.ai)return;
   if(R.gfx.urls){var sl=R.gfx.spec.slides.slice(0,8),u=[];for(var i=0;i<sl.length;i++)u.push(await drawGrafica(Object.assign({allineamento:R.gfx.spec.allineamento},sl[i],{foto:i===0&&!!R.photoImg}),giOf(cur),i===0?R.photoImg:null,R.f,{i:i+1,n:sl.length}));R.gfx.urls=u;R.gfx.url=u[0]}
   else R.gfx.url=await drawGrafica(R.gfx.spec,giOf(cur),R.photoImg,R.f);
-  R.mediaUrl=null;R.mediaUrls=null;renderCrea()}
+  R.mediaUrl=null;R.mediaUrls=null;renderCrea();salvaLavoro()}
+var LIB=[];
+async function loadLib(){try{LIB=await sbq('pulse_creazioni?select=id,profilo,titolo,dati,aggiornato_il&order=aggiornato_il.desc&limit=60')}catch(e){LIB=[]}}
+async function salvaLavoro(){var R=W.result;if(!R||R.loading||!R.c)return;
+  try{if(R.gfx&&!R.mediaUrl)await uploadGfx();
+    var gs=R.gfx&&!R.gfx.ai?R.gfx.spec:null;
+    var d={p:R.p,f:R.f,t:R.t,c:R.c,cap:R.cap,mat:R.mat||'',rich:R.rich||'',aiUrl:R.aiUrl||null,aiPrompt:R.aiPrompt||null,video:R.video||null,baseUrl:R.baseUrl||null,ai:!!(R.gfx&&R.gfx.ai),spec:gs,urls:R.video?[]:(R.mediaUrls||(R.mediaUrl?[R.mediaUrl]:[]))};
+    var body={titolo:String((R.c&&R.c.hook)||R.t||'').slice(0,90),dati:d,aggiornato_il:new Date().toISOString()};
+    if(R.cid){await sbq('pulse_creazioni?id=eq.'+R.cid,{method:'PATCH',body:body})}
+    else{body.org_id=ORG;body.profilo=cur;var rr=await sbq('pulse_creazioni',{method:'POST',body:body});R.cid=rr[0].id}
+    await loadLib()
+  }catch(e){toast('Salvataggio bozza non riuscito: '+e.message)}}
+function apriLavoro(id){var x=LIB.filter(function(l){return l.id===id})[0];if(!x)return;var d=x.dati||{};
+  W={p:d.p,f:d.f,mat:d.mat};
+  var R={p:d.p,f:d.f,c:d.c,cap:d.cap,mat:d.mat,t:d.t,rich:d.rich||'',cid:x.id,aiUrl:d.aiUrl,aiPrompt:d.aiPrompt,video:d.video,baseUrl:d.baseUrl,loading:false};
+  var u=d.urls||[];
+  if(d.video){R.mediaUrl=d.video;if(d.baseUrl)R.gfx={spec:{nota:d.aiPrompt?'Immagine AI: '+d.aiPrompt:''},url:d.baseUrl,ai:true}}
+  else if(u.length){R.mediaUrl=u[0];if(u.length>1)R.mediaUrls=u;
+    var sp=d.spec||{nota:d.aiPrompt?'Immagine AI: '+d.aiPrompt:''};R.gfx={spec:sp,url:u[0],ai:!!d.ai};if(u.length>1)R.gfx.urls=u}
+  W.result=R;
+  if(d.aiUrl){var im=new Image();im.crossOrigin='anonymous';im.onload=function(){if(W.result===R){R.photoImg=im;R.aiImg=im}};im.src=d.aiUrl}
+  renderCrea();go('crea')}
+async function eliminaLavoro(id){if(!confirm('Eliminare questo lavoro salvato?'))return;try{await sbq('pulse_creazioni?id=eq.'+id,{method:'DELETE'});if(W.result&&W.result.cid===id)W.result.cid=null;await loadLib();renderCrea()}catch(e){toast('Non eliminato: '+e.message)}}
+function libHtml(){var L=LIB.filter(function(l){return l.profilo===cur});if(!L.length)return '';
+  return '<h3 style="margin-top:18px">Lavori salvati · '+esc(PR[cur].name)+'</h3>'+L.map(function(l){var d=l.dati||{},th=d.aiUrl||(d.urls&&d.urls[0])||d.baseUrl||'';var dt=new Date(l.aggiornato_il);
+    return '<div class="card" style="display:flex;gap:12px;align-items:center;margin:8px 0;padding:10px">'+(th?'<img src="'+esc(th)+'" style="width:56px;height:70px;object-fit:cover;border-radius:8px;flex:none">':'<div style="width:56px;height:70px;border-radius:8px;background:#eee;flex:none"></div>')+
+      '<div style="flex:1;min-width:0"><div class="t" style="font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(l.titolo||d.t||'Senza titolo')+'</div><div class="m" style="margin:0">'+esc(PF[d.p]||'')+' · '+esc(d.f||'')+(d.video?' · video':'')+' · '+dt.getDate()+'/'+(dt.getMonth()+1)+'</div></div>'+
+      '<button class="btn sm" data-lib="'+l.id+'">Apri</button><button class="btn sm ghost" data-libdel="'+l.id+'">✕</button></div>'}).join('')}
+document.addEventListener('click',function(e){var t=e.target;if(!t||!t.dataset)return;if(t.dataset.lib)apriLavoro(t.dataset.lib);if(t.dataset.libdel)eliminaLavoro(t.dataset.libdel);if(t.dataset.gx==='chiudi'){W.result=null;renderCrea()}});
 async function falCall(body){var r=await fetch('/.netlify/functions/fal',{method:'POST',headers:{'content-type':'application/json',Authorization:'Bearer '+AUTH.access},body:JSON.stringify(body)});var j=await r.json().catch(function(){return{}});if(!r.ok)throw new Error(j.error||('errore '+r.status));return j}
 async function falAspetta(st,tipo,max){for(var i=0;i<max;i++){await new Promise(function(r){setTimeout(r,4000)});var x=await falCall({azione:'stato',status_url:st.status_url,response_url:st.response_url,tipo:tipo});if(x.stato==='pronto')return x;if(x.stato==='errore')throw new Error(x.error||'generazione non riuscita')}throw new Error('tempo scaduto, riprova')}
 async function aiImmagine(){var R=W.result;if(!R||R.aiBusy)return;var inp=document.getElementById('gx-rich');var rich=inp?inp.value:R.rich||'';R.rich=rich;R.aiBusy='Sto creando l\'immagine… (circa 20 secondi)';renderCrea();
   try{var st=await falCall({azione:'immagine',brand:brandOf(cur),identita:Object.assign({},ST[cur].identita,giOf(cur)),profilo:cur,tema:R.t,hook:(R.c||{}).hook||'',scene:(R.c||{}).scene||[],caption:R.cap||'',richiesta:rich,formato:R.f,piattaforma:PF[R.p]});
     var x=await falAspetta(st,'immagine',30);
     var im=new Image();await new Promise(function(ok,ko){im.onload=ok;im.onerror=function(){ko(new Error('immagine non leggibile'))};im.src=x.data});
-    R.aiImg=im;R.photoImg=im;R.video=null;R.mediaUrl=null;R.mediaUrls=null;R.gfx={spec:{nota:'Immagine AI: '+st.prompt},url:x.data,ai:true};caricaCosto()}
+    R.aiImg=im;R.photoImg=im;R.video=null;R.baseUrl=null;R.mediaUrl=null;R.mediaUrls=null;R.aiPrompt=st.prompt;R.gfx={spec:{nota:'Immagine AI: '+st.prompt},url:x.data,ai:true};caricaCosto();
+    try{R.aiUrl=await uploadMedia(b64Blob(x.data.split(',')[1],'image/jpeg'),cur+'/ai-'+Date.now()+'.jpg');R.mediaUrl=R.aiUrl}catch(e){toast('Immagine non salvata: '+e.message)}}
   catch(e){toast('Immagine non riuscita: '+e.message)}
-  R.aiBusy=null;renderCrea()}
+  R.aiBusy=null;renderCrea();salvaLavoro()}
 async function aiVideo(d){var R=W.result;if(!R||R.aiBusy||!R.gfx)return;var inp=document.getElementById('gx-rich');var rich=inp?inp.value:R.rich||'';R.rich=rich;R.aiBusy='Sto creando il video… (1-3 minuti, puoi restare qui)';renderCrea();
   try{var u=await uploadMedia(b64Blob(R.gfx.url.split(',')[1],'image/jpeg'),cur+'/base-'+Date.now()+'.jpg');
     var st=await falCall({azione:'video',brand:brandOf(cur),tema:R.t,richiesta:rich,image_url:u,durata:d});
-    var x=await falAspetta(st,'video',60);R.video=x.url;R.mediaUrl=x.url;R.mediaUrls=null;caricaCosto()}
+    var x=await falAspetta(st,'video',60);R.baseUrl=u;R.video=x.url;R.mediaUrl=x.url;R.mediaUrls=null;caricaCosto()}
   catch(e){toast('Video non riuscito: '+e.message)}
-  R.aiBusy=null;renderCrea()}
+  R.aiBusy=null;renderCrea();salvaLavoro()}
 function aiBlock(R){
   var h='<h3>Immagine e video AI</h3>';
   if(R.aiBusy)return h+'<div class="m">⏳ '+esc(R.aiBusy)+'</div>';
@@ -813,7 +842,7 @@ async function uploadGfx(){var R=W.result;if(!R||!R.gfx||R.mediaUrl)return;
 function renderCrea(){
   var R=W.result,b=$('crea-body');
   if(!R){
-    b.innerHTML='<div class="card empty"><div class="orb"></div><div class="t" style="font-size:20px">Pronto quando vuoi</div><div class="m" style="max-width:340px;margin:6px auto 0">Parla con l\'assistente: scegli il tipo di contenuto, il social e il tema, e qui compare l\'anteprima.</div></div>';
+    b.innerHTML='<div class="card empty"><div class="orb"></div><div class="t" style="font-size:20px">Pronto quando vuoi</div><div class="m" style="max-width:340px;margin:6px auto 0">Parla con l\'assistente: scegli il tipo di contenuto, il social e il tema, e qui compare l\'anteprima.</div></div>'+libHtml();
     return;
   }
   var ratio=(R.f==='Carousel'||R.f==='Post')?'4/5':(R.f==='Pin'?'2/3':'9/16');
@@ -827,7 +856,7 @@ function renderCrea(){
       '<h3 style="margin-top:14px">Hook · primi 2 secondi</h3><div class="t" style="font-size:20px">'+esc(R.c.hook)+'</div>'+
       (sc?'<h3>Script scena per scena</h3>'+R.c.scene.map(function(s,i){return '<div class="scn"><span>'+sc+' '+(i+1)+'</span><div>'+esc(s)+'</div></div>'}).join(''):'')+
       '<h3>Caption</h3><div class="t" style="font-weight:400">'+esc(R.cap)+'</div><h3>Hashtag</h3><div class="t" style="font-weight:400;color:var(--vio)">'+esc(R.c.tags)+'</div>'+
-      gfxBlock(R)+aiBlock(R)+
+      gfxBlock(R)+aiBlock(R)+'<div class="m" style="margin-top:10px">✓ Salvato automaticamente tra i lavori salvati.</div><button class="btn sm ghost" data-gx="chiudi" style="margin-top:6px">Chiudi e vedi i salvati</button>'+
       (W.when?'<div class="when"><div><div class="m" style="margin:0">'+(W.confirmed?'Programmato per':'Consigliato')+'</div><div class="big">'+fd(W.when.d)+' · '+W.when.h+'</div></div></div>':'')+'</div>';
   }
   b.innerHTML='<div class="stage">'+phone+'<div>'+det+'</div></div>';
@@ -899,7 +928,7 @@ async function generate(){
     var rr=await fetch('/.netlify/functions/generate',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({risposte:memoria(cur),profilo:cur,brand:{name:P.name,lead:P.lead,tono:P.tono,target:P.target},tema:W.result.t,social:PF[W.p],formato:W.f,note:W.note||''})});
     if(rr.ok){var g=await rr.json();if(g&&g.hook&&g.cap){c={hook:g.hook,scene:(g.scene&&g.scene.length?g.scene:c.scene),cap:g.cap,tags:g.tags||c.tags};cap=c.cap;W.result.c=c;W.result.cap=cap;}}
   }catch(e){}
-  caricaCosto();W.result.loading=false;renderCrea();
+  caricaCosto();W.result.loading=false;renderCrea();salvaLavoro();
   var m=await say('Ecco la bozza.<div class="rc"><small>Hook</small>'+esc(c.hook)+'</div><div class="rc"><small>Caption</small>'+esc(cap.length>130?cap.slice(0,130)+'…':cap)+'</div>');
   if(window.innerWidth<980){setQuick([{label:'Vedi anteprima completa',main:true,fn:function(){$('chat').classList.remove('open');go('crea');setTimeout(recommend,0)}}]);}
   else recommend();

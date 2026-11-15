@@ -1,0 +1,2 @@
+-- Lavori salvati in Crea (bozze con grafiche, immagini e video AI) + policy del bucket pulse-media.
+-- Applicata via MCP (pulse_creazioni, pulse_media_storage_policies).
