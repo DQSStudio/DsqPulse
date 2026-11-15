@@ -1,8 +1,6 @@
 // Analisi di mercato con ricerca web reale (Claude + web search). Salva risultato e profili proposti.
-import { readFileSync } from "node:fs";
 import { verificaProposti } from "./_monitor.mjs";
-import { ORG, rpc, userIsMember, logUso, pulisci } from "./_lib.mjs";
-const KB = { studio: readFileSync(new URL("./brand-studio.txt", import.meta.url), "utf8"), lab: readFileSync(new URL("./brand-lab.txt", import.meta.url), "utf8") };
+import { ORG, rpc, userIsMember, logUso, pulisci, getConoscenza } from "./_lib.mjs";
 const FOCUS = {
   studio: "Comunicazione di uno STUDIO di interior design e architettura rivolta a CLIENTI PRIVATI e famiglie che ristrutturano a Milano e in Italia. Cerca contenuti, formati, hashtag e profili del mondo interior design, ristrutturazioni e architettura residenziale (studi, designer, creator di casa).",
   lab: "Comunicazione di un'azienda di SOFTWARE B2B (SaaS) rivolta a STUDI DI ARCHITETTURA e professionisti tecnici. NON è interior design per privati: cerca come comunicano i software per architetti e studi (gestionali, preventivazione, computo, CAD, BIM, render AI), AEC tech, produttività e organizzazione dello studio, contenuti educativi per professionisti. Profili da osservare: brand di software per progettisti, creator e formatori di architettura/tecnologia, studi che raccontano il proprio metodo di lavoro e gli strumenti. Hashtag e trend del mondo AEC tech, archviz, BIM, gestione studio, AI per architetti.",
@@ -18,7 +16,7 @@ export default async (req) => {
   try {
     const prompt = `Sei un analista di social media. Brand: ${brand.name}. ${brand.lead || ""}
 Target: ${brand.target || ""}. Tono: ${brand.tono || ""}.
-${KB[profilo] ? "Conoscenza del brand:\n" + KB[profilo] : ""}
+${"Conoscenza del brand (riassunto approvato dal titolare):\n" + (await getConoscenza(profilo))}
 AMBITO DELL'ANALISI (rispettalo con rigore, non mescolarlo con altri ambiti): ${FOCUS[profilo]}
 Usa la ricerca web per analizzare, oggi, il settore di questo brand sui social (Instagram prima di tutto, poi TikTok, Pinterest, YouTube) in Italia. Trova: quali formati e temi stanno funzionando, trend e hashtag attuali, e 8-10 profili Instagram reali e pubblici (studi, designer, creator del settore, italiani o internazionali con pubblico ampio) che vale la pena osservare.
 Regole: usa SOLO ciò che trovi nelle fonti; se non sei sicuro che un account esista o sia attivo non includerlo; non inventare numeri di follower o statistiche; non inserire tag HTML o di citazione nei testi; dentro i testi del JSON non usare mai virgolette doppie (usa apostrofi) e niente a capo; ogni trend e ogni profilo devono avere l'URL della fonte. Scrivi in italiano.

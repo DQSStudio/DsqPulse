@@ -294,13 +294,12 @@ svg text{font-family:'Outfit',sans-serif}
     <div class="card"><div class="m" id="ig-st" style="margin-bottom:10px">Controllo…</div><button class="btn" id="ig-btn">Collega Instagram</button></div>
     <h3>1 · Carica i documenti</h3>
     <div class="card">
-      <label class="filebtn"><input type="file" id="pdfin" accept="application/pdf" multiple>Tocca per aggiungere PDF<br><span class="m">presentazioni, portfolio, brochure, listini, linee guida del brand</span></label>
+      <p class="m" style="margin-top:0">Anche documenti già pronti: presentazioni, domande già compilate, analisi di mercato o di pubblico. L'agente li legge, fa suo ciò che serve e ti chiede solo ciò che non gli è chiaro.</p>
+      <label class="filebtn"><input type="file" id="pdfin" accept="application/pdf,.txt,.md" multiple>Tocca per aggiungere documenti<br><span class="m">PDF con testo selezionabile, oppure file .txt</span></label>
       <div id="files" style="margin-top:8px"></div>
-      <div style="margin-top:12px"><button class="btn" id="mkq">Genera domande dai PDF</button></div>
     </div>
-    <div id="kn-q-wrap" style="display:none"><h3>2 · Rispondi alle domande</h3><div class="card" id="qlist"></div></div>
-    <div id="kn-sum-wrap" style="display:none"><h3>3 · Cosa ha capito l'agente</h3><div class="agent" id="kn-sum"></div></div>
-    <p class="note">Le domande sono quelle di base per ogni profilo. I PDF caricati qui non vengono ancora letti (quelli dello Studio sono già stati inseriti nel sistema).</p>
+    <div id="kn-q-wrap"><h3>2 · Domande dell'agente</h3><div class="card" id="qlist"></div></div>
+    <div id="kn-sum-wrap"><h3>3 · Cosa ha imparato l'agente</h3><div class="card"><div id="kn-sum"></div></div></div>
   </section>
 </main>
 </div>
@@ -421,7 +420,7 @@ Object.keys(PR).forEach(function(k){
   ST[k]={
     posts:PR[k].posts.map(function(x){n++;return {id:k+n,d:addD(x.d),h:x.h,p:x.p,f:x.f,t:x.t,st:x.st}}),
     prop:PR[k].prop.slice(),appr:[],
-    files:[],gen:false,ans:{},editing:{},newq:PR[k].newq.slice(),learned:[]
+    files:[],gen:false,ans:{},editing:{},newq:PR[k].newq.slice(),learned:[],docs:[],conoscenza:'',dq:[],kedit:false
   };
 });
 
@@ -451,10 +450,36 @@ async function loadAll(){
   var a=await sbq('pulse_risposte?select=*&order=creato_il.asc');
   a.forEach(function(r){var S=ST[r.profilo];if(!S)return;var i=PR[r.profilo].qs.indexOf(r.domanda);
     if(i>=0)S.ans[i]=r.risposta;else S.learned.push({q:r.domanda,a:r.risposta})});
+  await loadKn();
 }
 async function saveAnswer(prof,q,v){
   await sbq('pulse_risposte?profilo=eq.'+prof+'&domanda=eq.'+encodeURIComponent(q),{method:'DELETE'});
   await sbq('pulse_risposte',{method:'POST',body:{org_id:ORG,profilo:prof,domanda:q,risposta:v}});
+}
+function brandOf(k){var P=PR[k];return {name:P.name,lead:P.lead,tono:P.tono,target:P.target}}
+async function loadKn(){
+  try{
+    Object.keys(PR).forEach(function(k){ST[k].docs=[];ST[k].dq=[]});
+    (await sbq('pulse_documenti?select=*&order=creato_il.asc')).forEach(function(r){if(ST[r.profilo])ST[r.profilo].docs.push(r)});
+    (await sbq('pulse_domande?select=*&stato=eq.aperta&order=creato_il.asc')).forEach(function(r){if(ST[r.profilo])ST[r.profilo].dq.push(r)});
+    (await sbq('pulse_profili?select=slug,conoscenza')).forEach(function(r){if(ST[r.slug])ST[r.slug].conoscenza=r.conoscenza||''});
+  }catch(e){}
+}
+async function seedKn(){
+  for(var k in PR){if(!ST[k].conoscenza){try{var r=await fetch('/.netlify/functions/conoscenza?profilo='+k,{headers:{Authorization:'Bearer '+AUTH.access}});var j=await r.json();if(j.testo)ST[k].conoscenza=j.testo}catch(e){}}}
+  renderKn();
+}
+function impara(body){
+  body.brand=brandOf(body.profilo);
+  return fetch('/.netlify/functions/impara-background',{method:'POST',headers:{'content-type':'application/json',Authorization:'Bearer '+AUTH.access},body:JSON.stringify(body)});
+}
+function pollKn(n){
+  setTimeout(async function(){
+    await loadKn();
+    var ae=document.activeElement;if(!(ae&&ae.tagName==='TEXTAREA'))renderAll();
+    var rd=Object.keys(ST).some(function(k){return ST[k].docs.some(function(d){return d.stato==='in_lettura'})});
+    if(rd&&n<40)pollKn(n+1);
+  },5000);
 }
 function memoria(k){var S=ST[k],o=[];Object.keys(S.ans).forEach(function(i){o.push({q:PR[k].qs[i],a:S.ans[i]})});S.learned.forEach(function(x){o.push(x)});return o.slice(-25)}
 function showLogin(){
@@ -468,7 +493,7 @@ function showLogin(){
   o.style.display='flex';
 }
 async function boot(){
-  try{await loadAll();await loadAnalisi();var o=$('login');if(o)o.style.display='none';renderAll();autoMiei();caricaCosto()}
+  try{await loadAll();await loadAnalisi();var o=$('login');if(o)o.style.display='none';renderAll();autoMiei();caricaCosto();seedKn();pollKn(0)}
   catch(e){if(!AUTH)showLogin();else{toast('Errore nel caricamento dati');var o2=$('login');if(o2)o2.style.display='none'}}
 }
 
@@ -612,16 +637,24 @@ function renderAll(){
   renderNewq();renderCal(L);renderMercato();renderIdee();renderRis();renderKn();renderCrea();
   var nq=pend(cur).length;$('fabbd').style.display=nq?'flex':'none';$('fabbd').textContent=nq;
 }
-function pend(k){var S=ST[k],o=[];PR[k].qs.forEach(function(q,i){if(S.ans[i]===undefined&&!(S.skip&&S.skip[i]))o.push({q:q,i:i})});return o.slice(0,2)}
+function pend(k){var S=ST[k],o=[];S.dq.forEach(function(d){if(!(S.skip&&S.skip['d'+d.id]))o.push({q:d.testo,dq:d.id,why:d.perche,src:d.fonte})});PR[k].qs.forEach(function(q,i){if(S.ans[i]===undefined&&!(S.skip&&S.skip[i]))o.push({q:q,i:i})});return o.slice(0,2)}
 function renderNewq(){
   var P=pend(cur);
   $('newq').innerHTML=P.map(function(x,j){
-    return '<div class="qa"><div class="src">Perché lo chiedo: mi serve per scrivere testi più giusti per '+esc(PR[cur].name)+'</div><div class="q">'+esc(x.q)+'</div><textarea id="nq'+j+'" placeholder="Scrivi la risposta"></textarea><div style="margin-top:10px"><button class="btn sm" data-n="'+j+'">Salva nel profilo</button> <button class="btn sm ghost" data-k="'+j+'">Non ora</button></div></div>'}).join('')||'<div class="m">Per ora non ho altre domande. Ne farò di nuove man mano che conosco meglio il profilo.</div>';
+    return '<div class="qa"><div class="src">'+(x.dq?'Dal documento '+esc(x.src||'')+(x.why?' · '+esc(x.why):''):'Perché lo chiedo: mi serve per scrivere testi più giusti per '+esc(PR[cur].name))+'</div><div class="q">'+esc(x.q)+'</div><textarea id="nq'+j+'" placeholder="Scrivi la risposta"></textarea><div style="margin-top:10px"><button class="btn sm" data-n="'+j+'">Salva nel profilo</button> <button class="btn sm ghost" data-k="'+j+'">Non ora</button></div></div>'}).join('')||'<div class="m">Per ora non ho altre domande. Ne farò di nuove man mano che conosco meglio il profilo.</div>';
   document.querySelectorAll('#newq [data-n]').forEach(function(b){b.onclick=function(){
     var S=ST[cur],x=P[+b.dataset.n],v=$('nq'+b.dataset.n).value.trim();if(!v){toast('Scrivi una risposta');return}
-    S.ans[x.i]=v;renderAll();saveAnswer(cur,x.q,v).then(function(){toast('Profilo aggiornato')}).catch(function(e){toast('Non salvata: '+e.message)})}});
+    rispondi(cur,x,v)}});
   document.querySelectorAll('#newq [data-k]').forEach(function(b){b.onclick=function(){
-    var S=ST[cur];S.skip=S.skip||{};S.skip[P[+b.dataset.k].i]=true;renderAll();toast('Chiederò più avanti')}});
+    var S=ST[cur],x=P[+b.dataset.k];S.skip=S.skip||{};S.skip[x.dq?'d'+x.dq:x.i]=true;renderAll();toast('Chiederò più avanti')}});
+}
+function rispondi(k,x,v){
+  var S=ST[k];
+  if(x.dq){S.dq=S.dq.filter(function(d){return d.id!==x.dq});S.learned.push({q:x.q,a:v});sbq('pulse_domande?id=eq.'+x.dq,{method:'PATCH',body:{stato:'risposta'}}).catch(function(){})}
+  else S.ans[x.i]=v;
+  renderAll();
+  saveAnswer(k,x.q,v).then(function(){toast('Salvato: aggiorno il riassunto')}).catch(function(e){toast('Non salvata: '+e.message)});
+  impara({modo:'risposta',profilo:k,domanda:x.q,risposta:v}).then(function(){setTimeout(async function(){await loadKn();renderKn()},25000)}).catch(function(){});
 }
 function renderCal(L){
   var w='';
@@ -802,34 +835,68 @@ $('comp').onsubmit=async function(e){
 function renderKn(){
   igStato();
   var P=PR[cur],S=ST[cur],tot=P.qs.length,n=Object.keys(S.ans).length;
-  var pct=Math.min(100,Math.round((S.files.length?20:0)+(n/tot)*80));
+  var letti=S.docs.filter(function(d){return d.stato==='letto'}).length;
+  var pct=Math.min(100,Math.round(Math.min(letti,3)*15+((S.conoscenza||'').length>400?15:0)+(n/tot)*40));
   $('prof-title').innerHTML='Profilo · <em>'+esc(P.name)+'</em>';
   $('kn-pct').textContent=pct+'%';$('kn-bar').style.width=pct+'%';
-  $('kn-sub').textContent=S.files.length+' PDF caricati · '+n+' di '+tot+' domande con risposta';
-  $('files').innerHTML=S.files.map(function(f,i){return '<div class="file"><span class="pf PDF" style="width:30px;height:30px;font-size:9px">PDF</span><div class="grow">'+esc(f)+'</div><button class="btn sm ghost" data-r="'+i+'">Togli</button></div>'}).join('');
-  document.querySelectorAll('#files [data-r]').forEach(function(b){b.onclick=function(){ST[cur].files.splice(+b.dataset.r,1);renderKn()}});
-  $('kn-q-wrap').style.display=S.gen?'block':'none';
-  $('kn-sum-wrap').style.display=(n>0||S.learned.length)?'block':'none';
-  $('qlist').innerHTML=P.qs.map(function(q,i){
+  $('kn-sub').textContent=letti+' documenti letti · '+n+' di '+tot+' domande di base con risposta'+(S.dq.length?' · '+S.dq.length+' domande dall\'agente':'');
+  $('files').innerHTML=S.docs.map(function(d){
+    var st=d.stato==='in_lettura'?'<span style="color:#b26a00">⏳ in lettura…</span>':d.stato==='errore'?'<span style="color:#c0392b">⚠️ '+esc(d.errore||'non letto')+'</span>':'<span style="color:#0d8a58">✓ letto'+(d.tipo?' · '+esc(d.tipo):'')+'</span>';
+    var pts=d.stato==='letto'&&d.appreso&&d.appreso.punti&&d.appreso.punti.length?'<ul class="m" style="margin:6px 0 0 18px;padding:0">'+d.appreso.punti.map(function(p){return '<li>'+esc(p)+'</li>'}).join('')+'</ul>':'';
+    return '<div class="file" style="flex-wrap:wrap"><span class="pf PDF" style="width:30px;height:30px;font-size:9px">DOC</span><div class="grow"><div>'+esc(d.nome)+'</div><div class="m">'+st+'</div></div><button class="btn sm ghost" data-r="'+d.id+'">Togli</button>'+(pts?'<div style="width:100%">'+pts+'</div>':'')+'</div>'}).join('');
+  document.querySelectorAll('#files [data-r]').forEach(function(b){b.onclick=function(){
+    var id=b.dataset.r;ST[cur].docs=ST[cur].docs.filter(function(d){return d.id!==id});renderKn();
+    sbq('pulse_documenti?id=eq.'+id,{method:'DELETE'}).then(function(){toast('Documento tolto. Quello che ho imparato resta nel riassunto: puoi modificarlo')}).catch(function(){})}});
+  var dqh=S.dq.map(function(d){
+    return '<div class="qa"><div class="src">Dal documento: '+esc(d.fonte||'')+(d.perche?' · '+esc(d.perche):'')+'</div><div class="q">'+esc(d.testo)+'</div><textarea id="td'+d.id+'" placeholder="Scrivi qui la tua risposta"></textarea><div style="margin-top:10px"><button class="btn sm" data-d="'+d.id+'">Salva risposta</button> <button class="btn sm ghost" data-x="'+d.id+'">Salta</button></div></div>'}).join('');
+  $('qlist').innerHTML=dqh+P.qs.map(function(q,i){
     var a=S.ans[i],ed=S.editing[i]||a===undefined;
-    var src=S.files.length?'Dal PDF: '+esc(S.files[i%S.files.length]):'Domanda base';
     var body=ed?'<textarea id="ta'+i+'" placeholder="Scrivi qui la tua risposta">'+esc(a||'')+'</textarea><div style="margin-top:10px"><button class="btn sm" data-s="'+i+'">Salva risposta</button></div>':'<div class="ans">'+esc(a)+'</div><div style="margin-top:10px"><button class="btn sm ghost" data-e="'+i+'">Modifica</button></div>';
-    return '<div class="qa"><div class="src">'+src+(a!==undefined&&!ed?' · <span style="color:#0d8a58">salvata</span>':'')+'</div><div class="q">'+esc(q)+'</div>'+body+'</div>'}).join('');
+    return '<div class="qa"><div class="src">Domanda base'+(a!==undefined&&!ed?' · <span style="color:#0d8a58">salvata</span>':'')+'</div><div class="q">'+esc(q)+'</div>'+body+'</div>'}).join('');
+  document.querySelectorAll('#qlist [data-d]').forEach(function(b){b.onclick=function(){
+    var id=b.dataset.d,v=$('td'+id).value.trim();if(!v){toast('Scrivi una risposta');return}
+    var d=S.dq.filter(function(x){return x.id===id})[0];rispondi(cur,{q:d.testo,dq:id},v)}});
+  document.querySelectorAll('#qlist [data-x]').forEach(function(b){b.onclick=function(){
+    var id=b.dataset.x;S.dq=S.dq.filter(function(x){return x.id!==id});renderAll();sbq('pulse_domande?id=eq.'+id,{method:'PATCH',body:{stato:'saltata'}}).catch(function(){})}});
   document.querySelectorAll('#qlist [data-s]').forEach(function(b){b.onclick=function(){
     var i=+b.dataset.s,v=$('ta'+i).value.trim();if(!v){toast('Scrivi una risposta');return}
-    ST[cur].ans[i]=v;delete ST[cur].editing[i];renderKn();saveAnswer(cur,PR[cur].qs[i],v).then(function(){toast('Risposta salvata')}).catch(function(e){toast('Non salvata: '+e.message)})}});
+    delete ST[cur].editing[i];rispondi(cur,{q:PR[cur].qs[i],i:i},v)}});
   document.querySelectorAll('#qlist [data-e]').forEach(function(b){b.onclick=function(){ST[cur].editing[+b.dataset.e]=true;renderKn()}});
-  $('kn-sum').innerHTML='<b>Agente · cosa ho capito</b>Profilo: '+esc(P.name)+'. Target: '+esc(P.target)+'. Tono: '+esc(P.tono)+'.<br><br>Dalle tue risposte:<br>'+Object.keys(S.ans).map(function(i){return '• '+esc(S.ans[i].length>110?S.ans[i].slice(0,110)+'…':S.ans[i])}).join('<br>')+(S.learned.length?'<br><br>Aggiornamenti successivi:<br>'+S.learned.map(function(l){return '• '+esc(l.q.length>80?l.q.slice(0,80)+'…':l.q)+' → '+esc(l.a.length>90?l.a.slice(0,90)+'…':l.a)}).join('<br>'):'')+'<br><br>Userò queste informazioni in ogni idea, script e caption, solo per questo profilo.';
+  if(S.kedit){
+    $('kn-sum').innerHTML='<div class="m" style="margin:0 0 8px">Correggi o aggiungi: da ora l\'agente userà questo testo per analisi e contenuti.</div><textarea id="kn-ta" rows="16" style="width:100%">'+esc(S.conoscenza||'')+'</textarea><div style="margin-top:10px"><button class="btn sm" id="kn-save">Salva</button> <button class="btn sm ghost" id="kn-cancel">Annulla</button></div>';
+    $('kn-ta').value=S.conoscenza||'';
+    $('kn-save').onclick=async function(){var v=$('kn-ta').value.trim();if(!v){toast('Il riassunto non può essere vuoto');return}
+      try{await sbq('pulse_profili?slug=eq.'+cur,{method:'PATCH',body:{conoscenza:v,aggiornato_il:new Date().toISOString()}});S.conoscenza=v;S.kedit=false;renderKn();toast('Riassunto aggiornato')}catch(e){toast('Non salvato: '+e.message)}};
+    $('kn-cancel').onclick=function(){S.kedit=false;renderKn()};
+  }else{
+    $('kn-sum').innerHTML='<div class="agent" style="white-space:pre-wrap"><b>Agente · cosa ho capito</b>'+esc(S.conoscenza||'Ancora niente: carica un documento o rispondi alle domande.')+'</div><div style="margin-top:10px"><button class="btn sm ghost" id="kn-edit">Modifica</button></div>';
+    $('kn-edit').onclick=function(){S.kedit=true;renderKn()};
+  }
 }
-$('pdfin').onchange=function(e){
-  var S=ST[cur];Array.prototype.forEach.call(e.target.files,function(f){S.files.push(f.name)});
-  e.target.value='';renderKn();toast('PDF aggiunti');
-};
-$('mkq').onclick=function(){
-  var S=ST[cur];
-  if(!S.files.length){toast('Carica almeno un PDF');return}
-  S.gen=true;renderKn();toast('Domande generate');
-  $('kn-q-wrap').scrollIntoView({behavior:'smooth'});
+var PDFV='3.11.174';
+function loadPdfjs(){return new Promise(function(res,rej){
+  if(window.pdfjsLib)return res();
+  var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/'+PDFV+'/pdf.min.js';
+  s.onload=function(){pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/'+PDFV+'/pdf.worker.min.js';res()};
+  s.onerror=function(){rej(new Error('lettore PDF non disponibile'))};document.head.appendChild(s)})}
+async function leggiFile(f){
+  if(/\.(txt|md)$/i.test(f.name)||(f.type||'').indexOf('text')===0)return await f.text();
+  await loadPdfjs();var pdf=await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise,out=[];
+  for(var i=1;i<=Math.min(pdf.numPages,60);i++){var pg=await pdf.getPage(i),c=await pg.getTextContent();out.push(c.items.map(function(x){return x.str}).join(' '))}
+  return out.join('\n\n')}
+$('pdfin').onchange=async function(e){
+  var files=Array.prototype.slice.call(e.target.files),k=cur;e.target.value='';
+  for(var n=0;n<files.length;n++){var f=files[n];
+    try{
+      toast('Leggo '+f.name+'…');
+      var t=(await leggiFile(f)).replace(/[ \t]+/g,' ').replace(/\n\s*\n+/g,'\n\n').trim();
+      if(t.length<200)throw new Error('quasi senza testo: forse è un PDF fatto di immagini. Esportalo con testo selezionabile');
+      var row=await sbq('pulse_documenti',{method:'POST',body:{org_id:ORG,profilo:k,nome:f.name}});
+      ST[k].docs.push(row[0]);renderKn();
+      await impara({modo:'doc',profilo:k,doc_id:row[0].id,nome:f.name,testo:t});
+    }catch(err){toast(f.name+': '+err.message)}
+  }
+  pollKn(0);
 };
 
 renderAll();animBars();startChat();

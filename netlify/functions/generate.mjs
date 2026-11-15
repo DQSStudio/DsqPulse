@@ -1,7 +1,5 @@
 // Genera hook, scene, caption e hashtag con Claude. La chiave resta lato server.
-import { readFileSync } from "node:fs";
-const KB = { studio: readFileSync(new URL("./brand-studio.txt", import.meta.url), "utf8"), lab: readFileSync(new URL("./brand-lab.txt", import.meta.url), "utf8") };
-import { logUso, pulisci } from "./_lib.mjs";
+import { logUso, pulisci, getConoscenza } from "./_lib.mjs";
 const MODEL = "claude-sonnet-5-5";
 export default async (req) => {
   if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
@@ -12,7 +10,7 @@ export default async (req) => {
   const { risposte = [], profilo = "", brand = {}, tema = "", social = "", formato = "", note = "" } = b;
   const prompt = `Sei il social media manager di ${brand.name || "Desearq"}.
 Profilo: ${brand.lead || ""}
-${KB[profilo] ? "CONOSCENZA DEL BRAND (usa solo questi fatti):\n" + KB[profilo] : ""}
+${"CONOSCENZA DEL BRAND (usa solo questi fatti):\n" + (await getConoscenza(profilo))}
 Tono: ${brand.tono || ""}
 Target: ${brand.target || ""}
 Piattaforma: ${social}. Formato: ${formato}.

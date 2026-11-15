@@ -48,3 +48,11 @@ export function pulisci(v) {
   if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, pulisci(x)]));
   return v;
 }
+
+// Conoscenza di base per profilo (seme iniziale) e conoscenza viva salvata nel database (modificabile dall'utente).
+import { readFileSync } from "node:fs";
+export const KB = { studio: readFileSync(new URL("./brand-studio.txt", import.meta.url), "utf8"), lab: readFileSync(new URL("./brand-lab.txt", import.meta.url), "utf8") };
+export async function getConoscenza(profilo) {
+  try { const t = await rpc("pulse_fn_conoscenza_get", { p_org: ORG, p_profilo: profilo }); if (t && t.trim()) return t; } catch {}
+  return KB[profilo] || "";
+}
