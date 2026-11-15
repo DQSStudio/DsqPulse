@@ -779,7 +779,7 @@ async function drawGrafica(spec,g,photo,f,pos){
 async function creaGrafica(v){
   var R=W.result;if(!R||R.loading)return;R.gfxBusy=true;renderCrea();
   try{
-    var r=await fetch('/.netlify/functions/grafica',{method:'POST',headers:{'content-type':'application/json',Authorization:'Bearer '+AUTH.access},body:JSON.stringify({brand:brandOf(cur),identita:Object.assign({},ST[cur].identita,giOf(cur)),tema:R.t,hook:R.c.hook,caption:R.cap,formato:R.f,piattaforma:PF[R.p],variante:v||0})});
+    var r=await fetch('/.netlify/functions/grafica',{method:'POST',headers:{'content-type':'application/json',Authorization:'Bearer '+AUTH.access},body:JSON.stringify({brand:brandOf(cur),identita:Object.assign({},ST[cur].identita,giOf(cur)),tema:R.t,hook:R.c.hook,caption:R.cap,formato:R.f,piattaforma:PF[R.p],esempio:R.esempio||'',variante:v||0})});
     var spec=await r.json();if(!r.ok)throw new Error(spec.error||'errore');
     if(/carosel|carousel/i.test(R.f)){
       var sl=(spec.slides||[]).slice(0,8);if(sl.length<2)throw new Error('carosello troppo corto');
@@ -798,7 +798,7 @@ async function loadLib(){try{LIB=await sbq('pulse_creazioni?select=id,profilo,ti
 async function salvaLavoro(){var R=W.result;if(!R||R.loading||!R.c)return;
   try{if(R.gfx&&!R.mediaUrl)await uploadGfx();
     var gs=R.gfx&&!R.gfx.ai?R.gfx.spec:null;
-    var d={p:R.p,f:R.f,t:R.t,c:R.c,cap:R.cap,mat:R.mat||'',rich:R.rich||'',aiUrl:R.aiUrl||null,aiPrompt:R.aiPrompt||null,video:R.video||null,baseUrl:R.baseUrl||null,ai:!!(R.gfx&&R.gfx.ai),spec:gs,urls:R.video?[]:(R.mediaUrls||(R.mediaUrl?[R.mediaUrl]:[]))};
+    var d={p:R.p,f:R.f,t:R.t,c:R.c,cap:R.cap,mat:R.mat||'',rich:R.rich||'',esempio:R.esempio||null,aiUrl:R.aiUrl||null,aiPrompt:R.aiPrompt||null,video:R.video||null,baseUrl:R.baseUrl||null,ai:!!(R.gfx&&R.gfx.ai),spec:gs,urls:R.video?[]:(R.mediaUrls||(R.mediaUrl?[R.mediaUrl]:[]))};
     var body={titolo:String((R.c&&R.c.hook)||R.t||'').slice(0,90),dati:d,aggiornato_il:new Date().toISOString()};
     if(R.cid){await sbq('pulse_creazioni?id=eq.'+R.cid,{method:'PATCH',body:body})}
     else{body.org_id=ORG;body.profilo=cur;var rr=await sbq('pulse_creazioni',{method:'POST',body:body});R.cid=rr[0].id}
@@ -806,7 +806,7 @@ async function salvaLavoro(){var R=W.result;if(!R||R.loading||!R.c)return;
   }catch(e){toast('Salvataggio bozza non riuscito: '+e.message)}}
 function apriLavoro(id){var x=LIB.filter(function(l){return l.id===id})[0];if(!x)return;var d=x.dati||{};
   W={p:d.p,f:d.f,mat:d.mat};
-  var R={p:d.p,f:d.f,c:d.c,cap:d.cap,mat:d.mat,t:d.t,rich:d.rich||'',cid:x.id,aiUrl:d.aiUrl,aiPrompt:d.aiPrompt,video:d.video,baseUrl:d.baseUrl,loading:false};
+  var R={p:d.p,f:d.f,c:d.c,cap:d.cap,mat:d.mat,t:d.t,rich:d.rich||'',esempio:d.esempio||null,cid:x.id,aiUrl:d.aiUrl,aiPrompt:d.aiPrompt,video:d.video,baseUrl:d.baseUrl,loading:false};
   var u=d.urls||[];
   if(d.video){R.mediaUrl=d.video;if(d.baseUrl)R.gfx={spec:{nota:d.aiPrompt?'Immagine AI: '+d.aiPrompt:''},url:d.baseUrl,ai:true}}
   else if(u.length){R.mediaUrl=u[0];if(u.length>1)R.mediaUrls=u;
@@ -826,7 +826,7 @@ async function falAspetta(st,tipo,max){for(var i=0;i<max;i++){await new Promise(
 async function aiImmagine(modo){var R=W.result;if(!R||R.aiBusy)return;var inp=document.getElementById('gx-rich');var rich=inp?inp.value:R.rich||'';R.rich=rich;R.aiBusy='Sto creando l\'immagine… (circa 30 secondi)';renderCrea();
   var st,x,ultimo='';
   for(var tent=0;tent<2&&!x;tent++){
-    try{st=await falCall({azione:'immagine',modo:modo||'foto',senza_rif:tent===1,brand:brandOf(cur),identita:Object.assign({},ST[cur].identita,giOf(cur)),profilo:cur,tema:R.t,hook:(R.c||{}).hook||'',scene:(R.c||{}).scene||[],caption:R.cap||'',richiesta:rich,formato:R.f,piattaforma:PF[R.p]});
+    try{st=await falCall({azione:'immagine',modo:modo||'foto',senza_rif:tent===1,brand:brandOf(cur),identita:Object.assign({},ST[cur].identita,giOf(cur)),profilo:cur,tema:R.t,hook:(R.c||{}).hook||'',scene:(R.c||{}).scene||[],caption:R.cap||'',richiesta:rich,esempio:R.esempio||'',formato:R.f,piattaforma:PF[R.p]});
       x=await falAspetta(st,'immagine',30)}
     catch(e){ultimo=e.message;x=null;if(modo!=='post')break}}
   if(!x){toast('Immagine non riuscita: '+ultimo)}
@@ -846,6 +846,7 @@ function aiBlock(R){
   var h='<h3>Immagine e video AI</h3>';
   if(R.aiBusy)return h+'<div class="m">⏳ '+esc(R.aiBusy)+'</div>';
   var reel=/reel|video|stori/i.test(R.f);
+  h+='<div style="margin-bottom:10px">'+(R.esempio?'<div style="display:flex;gap:10px;align-items:center"><img src="'+esc(R.esempio)+'" style="width:56px;height:70px;object-fit:cover;border-radius:8px;border:1px solid #ddd"><div class="m" style="margin:0;flex:1">Post di esempio: l\'agente ricalca questo layout, cambiando solo i testi.</div><button class="btn sm ghost" data-gx="noex">✕</button></div>':'<label class="btn sm ghost" style="cursor:pointer;display:inline-block">Carica un post di esempio<input type="file" id="gx-ex" accept="image/*" style="display:none"></label><div class="m" style="margin-top:4px">Un tuo post fatto bene: il nuovo viene creato con lo stesso layout, font e colori.</div>')+'</div>';
   h+='<input id="gx-rich" value="'+esc(R.rich||'')+'" placeholder="Cosa vuoi vedere? (facoltativo)" style="width:100%;margin-bottom:8px">'+
     '<div style="display:flex;flex-wrap:wrap;gap:8px"><button class="btn sm" data-gx="aipost">'+(R.f==='Carousel'?'Copertina completa con AI':'Post completo con AI (con testo)')+'</button><button class="btn sm ghost" data-gx="ai">Solo immagine (senza testo)</button>'+
     (reel&&R.gfx?'<button class="btn sm" data-gx="vid5">Anima in video 5s</button><button class="btn sm ghost" data-gx="vid10">10s</button>':'')+'</div>'+
@@ -865,8 +866,9 @@ function gfxBlock(R){
 document.addEventListener('click',function(e){var a=e.target&&e.target.dataset&&e.target.dataset.gx;if(!a)return;var R=W.result;if(!R)return;
   if(a==='nuova'){R.gv=(R.gfx?(R.gv||0)+1:0);creaGrafica(R.gv)}
   if(a==='nofoto'){R.photoImg=null;ridisegna()}
-  if(a==='ai')aiImmagine('foto');if(a==='aipost')aiImmagine('post');if(a==='vid5')aiVideo(5);if(a==='vid10')aiVideo(10)});
-document.addEventListener('change',function(e){if(!e.target||e.target.id!=='gx-photo')return;var f=e.target.files[0];if(!f)return;
+  if(a==='noex'){R.esempio=null;renderCrea();salvaLavoro()}if(a==='ai')aiImmagine('foto');if(a==='aipost')aiImmagine('post');if(a==='vid5')aiVideo(5);if(a==='vid10')aiVideo(10)});
+document.addEventListener('change',async function(e){if(e.target&&e.target.id==='gx-ex'){var fx=e.target.files[0];if(!fx||!W.result)return;try{toast('Carico l\'esempio…');var im2=await riduciImmagine(fx);W.result.esempio=await uploadMedia(b64Blob(im2.data,'image/jpeg'),cur+'/esempio-'+Date.now()+'.jpg');renderCrea();salvaLavoro()}catch(err){toast('Esempio non caricato: '+err.message)}return}
+if(!e.target||e.target.id!=='gx-photo')return;var f=e.target.files[0];if(!f)return;
   var u=URL.createObjectURL(f),im=new Image();im.onload=function(){W.result.photoImg=im;W.result.gfx.spec.foto=true;ridisegna()};im.onerror=function(){toast('Foto non leggibile')};im.src=u});
 async function uploadGfx(){var R=W.result;if(!R||!R.gfx||R.mediaUrl)return;
   if(R.gfx.urls){var us=[];for(var i=0;i<R.gfx.urls.length;i++)us.push(await uploadMedia(b64Blob(R.gfx.urls[i].split(',')[1],'image/jpeg'),cur+'/car-'+Date.now()+'-'+i+'.jpg'));R.mediaUrls=us;R.mediaUrl=us[0];return}

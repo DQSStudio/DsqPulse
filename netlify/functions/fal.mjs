@@ -23,17 +23,19 @@ export default async (req) => {
   const { azione } = b;
   try {
     if (azione === "immagine") {
-      const { brand = {}, identita = {}, profilo = "", tema = "", hook = "", scene = [], caption = "", richiesta = "", formato = "", piattaforma = "", modo = "foto", senza_rif = false } = b;
+      const { brand = {}, identita = {}, profilo = "", tema = "", hook = "", scene = [], caption = "", richiesta = "", formato = "", piattaforma = "", modo = "foto", senza_rif = false, esempio = "" } = b;
       const ar = /pin/i.test(formato) ? "2:3" : /post|carosel|carousel/i.test(formato) ? "4:5" : "9:16";
       const post = modo === "post";
       const kn = await getConoscenza(profilo).catch(() => "");
-      const refs = senza_rif ? [] : (identita.riferimenti || []).map((r) => r.url).filter((u) => /^https:\/\/qudoygcfphqhhyenpwlr\.supabase\.co\/storage\//.test(u)).slice(0, 3);
+      const okSb = (u) => /^https:\/\/qudoygcfphqhhyenpwlr\.supabase\.co\/storage\//.test(u);
+      const ex = okSb(esempio) ? esempio : "";
+      const refs = senza_rif ? [] : (ex ? [ex] : (identita.riferimenti || []).map((r) => r.url).filter(okSb).slice(0, 3));
       const refBlocks = refs.map((u) => ({ type: "image", source: { type: "url", url: u } }));
       const comune = `CONOSCENZA DEL BRAND:\n${String(kn).slice(0, 3500)}\nCONTENUTO: piattaforma ${piattaforma}, formato ${formato}. Tema: ${tema}. Hook: ${hook}. Scene: ${JSON.stringify(scene).slice(0, 500)}. Caption: ${String(caption).slice(0, 500)}.\nRICHIESTA DEL TITOLARE: ${richiesta || "nessuna: scegli tu"}.\nIdentità grafica: font titoli ${identita.font_titoli || ""}, font testo ${identita.font_testo || ""}, colori ${JSON.stringify(identita.colori || {})}, wordmark "${identita.wordmark || ""}", sottotitolo "${identita.sottotitolo || ""}". Stile: ${identita.stile || "minimale, pulito"}.`;
       const prompt = post
         ? await promptDa(`Sei il direttore creativo di ${brand.name || "un brand"}. Scrivi UN prompt in inglese (max 170 parole) per un generatore di immagini che sa scrivere testo (Nano Banana Pro) per produrre la GRAFICA SOCIAL FINITA di questo contenuto, pronta da pubblicare.
 ${comune}
-${refBlocks.length ? "Ti allego grafiche di riferimento del brand: la nuova grafica deve avere la stessa impostazione (gerarchia, spazi, linee sottili, allineamento, wordmark in alto, stile tipografico) ma contenuto diverso; indicalo nel prompt come 'match the visual style of the reference images'." : ""}
+${ex && refBlocks.length ? "Ti allego UN POST DI ESEMPIO scelto dal titolare: la nuova grafica deve RICALCARE ESATTAMENTE lo stesso layout (posizione di ogni elemento, dimensioni e peso dei caratteri, font, colori, linee, margini, wordmark, stile di eventuali foto), cambiando solo i testi e, se serve, il soggetto visivo. Scrivi nel prompt 'replicate the layout, typography and colors of the reference image exactly, only change the text to: ...'." : refBlocks.length ? "Ti allego grafiche di riferimento del brand: la nuova grafica deve avere la stessa impostazione (gerarchia, spazi, linee sottili, allineamento, wordmark in alto, stile tipografico) ma contenuto diverso; indicalo nel prompt come 'match the visual style of the reference images'." : ""}
 Nel prompt scrivi: formato verticale ${ar}, layout preciso (wordmark in alto a sinistra con linea sottile, titolo grande, sottotitolo, eventuale elemento visivo coerente con il tema, firma in basso), colori in esadecimale, font descritto (es. clean geometric sans-serif), e i TESTI ESATTI in italiano tra virgolette (titolo massimo 8 parole, sottotitolo massimo 12 parole, eventuale invito all'azione breve). Il testo deve essere corretto, senza refusi, senza testo extra. Nessun dato inventato. Se il brand vende software, l'eventuale visual mostra il prodotto o il lavoro dello studio in modo astratto e pulito. Rispondi solo con il prompt.`, refBlocks)
         : await promptDa(`Sei il direttore creativo di ${brand.name || "un brand"}. Scrivi UN prompt in inglese (max 100 parole) per un generatore di immagini fotografiche che produca l'immagine giusta per QUESTO contenuto.
 ${comune}

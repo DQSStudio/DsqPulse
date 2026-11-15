@@ -5,11 +5,11 @@ export default async (req) => {
   const jwt = (req.headers.get("authorization") || "").replace(/^Bearer /i, "");
   if (!jwt || !(await userIsMember(jwt))) return Response.json({ error: "non autorizzato" }, { status: 401 });
   const b = await req.json().catch(() => ({}));
-  const { brand = {}, identita = {}, tema = "", hook = "", caption = "", formato = "", piattaforma = "", variante = 0 } = b;
-  const imgs = (identita.riferimenti || []).map((r) => r.url).filter((u) => /^https:\/\/qudoygcfphqhhyenpwlr\.supabase\.co\/storage\//.test(u)).slice(0, 2).map((u) => ({ type: "image", source: { type: "url", url: u } }));
+  const { brand = {}, identita = {}, tema = "", hook = "", caption = "", formato = "", piattaforma = "", variante = 0, esempio = "" } = b;
+  const imgs = [...(/^https:\/\/qudoygcfphqhhyenpwlr\.supabase\.co\/storage\//.test(esempio) ? [esempio] : []), ...(identita.riferimenti || []).map((r) => r.url)].filter((u) => /^https:\/\/qudoygcfphqhhyenpwlr\.supabase\.co\/storage\//.test(u)).slice(0, 3).map((u) => ({ type: "image", source: { type: "url", url: u } }));
   const testo = `Sei un graphic designer professionista che crea grafiche per i social di ${brand.name || "un brand"}.
 IDENTITÀ GRAFICA OBBLIGATORIA: font titoli ${identita.font_titoli || "Jost"}, font testo ${identita.font_testo || "Jost"}, colori ${JSON.stringify(identita.colori || {})}, wordmark ${identita.wordmark || ""}. Stile: ${identita.stile || "minimale e pulito"}.
-${imgs.length ? "Ti ho allegato grafiche già realizzate come base: mantieni la stessa impostazione (gerarchia, spazi, linee, allineamento) senza copiarle." : ""}
+${/^https:\/\/qudoygcfphqhhyenpwlr/.test(esempio) ? "La PRIMA immagine allegata è il POST DI ESEMPIO scelto dal titolare: segui la sua impostazione (gerarchia, posizione degli elementi, allineamento, quantità di testo, uso delle linee) il più fedelmente possibile. " : ""}${imgs.length ? "Ti ho allegato grafiche già realizzate come base: mantieni la stessa impostazione (gerarchia, spazi, linee, allineamento) senza copiarle." : ""}
 Piattaforma: ${piattaforma}. Formato: ${formato}. Tema: ${tema}. Hook: ${hook}. Caption: ${String(caption).slice(0, 300)}.
 ${variante ? "Proponi una composizione DIVERSA dalle precedenti (variante " + variante + ")." : ""}
 Scegli il template più adatto e scrivi i testi per la grafica: brevi, forti, in italiano, senza inventare dati. Sulla grafica il testo deve essere molto più corto della caption.
