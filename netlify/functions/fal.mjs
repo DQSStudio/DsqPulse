@@ -7,6 +7,8 @@ const okHost = (u) => /^https:\/\/([a-z0-9.-]+\.fal\.(run|media|ai)\/|storage\.g
 
 async function consumo(funzione, modello, costo) { try { await rpc("pulse_fn_consumo", { p_org: ORG, p_funzione: funzione, p_modello: modello, p_in: 0, p_out: 0, p_ricerche: 0, p_costo: costo }); } catch {} }
 
+async function dbg(m) { await consumo("ERR " + String(m).slice(0, 380), "debug", 0); }
+
 async function promptDa(istruzione, imgs = []) {
   const r = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: { "x-api-key": process.env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
     body: JSON.stringify({ model: MODEL, max_tokens: 500, messages: [{ role: "user", content: [...imgs, { type: "text", text: istruzione }] }] }) });
@@ -45,7 +47,7 @@ REGOLE: l'immagine deve rappresentare in modo diretto e riconoscibile il soggett
       let ep = IMG; if (post && refs.length) { ep = IMG_EDIT; input.image_urls = refs; }
       const r = await fetch("https://queue.fal.run/" + ep, { method: "POST", headers: FAL(), body: JSON.stringify(input) });
       const j = await r.json();
-      if (!r.ok) console.error("fal start", r.status, JSON.stringify(j).slice(0, 600));
+      if (!r.ok) await dbg("start " + r.status + " " + JSON.stringify(j));
       if (!r.ok) return Response.json({ error: "fal " + r.status + " " + JSON.stringify(j).slice(0, 300) }, { status: 502 });
       await consumo("immagine-ai", ep, 0.15);
       return Response.json({ tipo: "immagine", prompt, status_url: j.status_url, response_url: j.response_url });
@@ -66,10 +68,10 @@ REGOLE: l'immagine deve rappresentare in modo diretto e riconoscibile il soggett
       if (!okHost(status_url || "") || !okHost(response_url || "")) return Response.json({ error: "url non valido" }, { status: 400 });
       const s = await (await fetch(status_url, { headers: FAL() })).json();
       if (s.status === "IN_QUEUE" || s.status === "IN_PROGRESS") return Response.json({ stato: "in_corso" });
-      if (s.status !== "COMPLETED") console.error("fal stato", JSON.stringify(s).slice(0, 600)); return Response.json({ stato: "errore", error: "stato " + JSON.stringify(s).slice(0, 400) });
+      if (s.status !== "COMPLETED") await dbg("stato " + JSON.stringify(s)); return Response.json({ stato: "errore", error: "stato " + JSON.stringify(s).slice(0, 400) });
       const rr = await fetch(response_url, { headers: FAL() });
       const out = await rr.json();
-      if (!rr.ok) console.error("fal risultato", rr.status, JSON.stringify(out).slice(0, 600));
+      if (!rr.ok) await dbg("risultato " + rr.status + " " + JSON.stringify(out));
       if (!rr.ok) return Response.json({ stato: "errore", error: "fal " + rr.status + " " + JSON.stringify(out).slice(0, 400) });
       if (tipo === "immagine") {
         const u = out.images?.[0]?.url; if (!u || !okHost(u)) return Response.json({ stato: "errore", error: "nessuna immagine" });
