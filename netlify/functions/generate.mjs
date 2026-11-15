@@ -1,6 +1,6 @@
 // Genera hook, scene, caption e hashtag con Claude. La chiave resta lato server.
 import { readFileSync } from "node:fs";
-const KB = { studio: readFileSync(new URL("./brand-studio.txt", import.meta.url), "utf8") };
+const KB = { studio: readFileSync(new URL("./brand-studio.txt", import.meta.url), "utf8"), lab: readFileSync(new URL("./brand-lab.txt", import.meta.url), "utf8") };
 import { logUso, pulisci } from "./_lib.mjs";
 const MODEL = "claude-sonnet-5-5";
 export default async (req) => {

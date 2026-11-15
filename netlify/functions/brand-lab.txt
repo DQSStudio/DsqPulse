@@ -1,0 +1,12 @@
+DESEARQ LAB — software per studi di architettura e professionisti. Nato dall'uso reale in uno studio di interior design e architettura (Desearq Studio, Milano, fondato dall'arch. Nicola Maglione): i programmi risolvono problemi concreti di chi gestisce uno studio. Non è uno studio di progettazione: vende strumenti. Colore del brand: bordeaux.
+A CHI SI RIVOLGE: studi di architettura e interior design, piccoli studi e singoli professionisti (architetti, ingegneri, geometri, progettisti), in Italia. Cliente tipico: titolare di studio che perde tempo tra preventivi, computi, cantiere, clienti e fatture.
+PRODOTTI (suite "Desearq", un solo login, database unico, ogni studio isolato dagli altri):
+- Estimly: preventivi per studi; configuratore di preventivi veloci, firma del preventivo, piani di pagamento a rate con Stripe collegato dallo studio stesso (nessuna commissione trattenuta da Desearq), follow-up. Prezzo scelto: prova di 14 giorni a 2 euro, poi 19,90 euro al mese (10,90 euro al mese per sempre per i primi 20 utenti). Già in uso da 2 studi esterni.
+- Flow: gestionale di studio (clienti/CRM, progetti, ore e time tracking, controllo economico, fatturazione, report, agenda); riceve i preventivi firmati da Estimly.
+- Quant: gestionale edile per listini, computi metrici e progetti.
+- View: portale per i clienti dello studio, dove vedono solo i propri progetti, con Gantt e report mensili.
+- Site: gestione del cantiere (progetti attivi, rapportini, ore, foto, documenti, team).
+- Cost: calcolatore di costi fissi dello studio, per capire il costo orario e la marginalità.
+- In sviluppo/uso interno: DSQ CAD (CAD 2D nativo con tavole impianti, sezioni quotate e automazioni, da installare sui PC dello studio) e DesearqRenderAi (render fotorealistici con AI da screenshot di SketchUp, senza modificare la geometria).
+PUNTI DI FORZA RACCONTABILI: i programmi sono pensati e usati da chi lavora davvero in studio; prodotti collegati tra loro (il preventivo firmato diventa progetto e piano pagamenti); vendibili sia singolarmente sia come suite; i clienti dello studio non occupano posti; modello a quota base più prezzo a persona, prova gratuita con 2 posti.
+NON dichiarare numeri di clienti, risultati o risparmi che non siano in questo testo. TONO: da definire con le risposte del titolare; finché manca, usa un tono professionale, concreto e diretto, da collega che conosce il lavoro di studio, senza gergo da startup.
