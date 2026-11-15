@@ -523,12 +523,13 @@ async function autoMiei(){
     var n=0,iv=setInterval(async function(){n++;await loadAnalisi();renderAll();if(n>8)clearInterval(iv)},8000);
   }catch(e){}
 }
+function okAn(m){return !!(m&&m.dati&&Object.keys(m.dati).length)}
 function pct(x){return (x==null?'—':x+'%')}
 function renderMercato(){
   var P=PR[cur],A=AN[cur],m=A.mercato,T=A.top,list=SG[cur];
   $('mer-lead').textContent='Analisi reale per '+P.name+': ricerca sul web e lettura di profili Instagram pubblici. L\'agente propone, tu approvi.';
   $('mer-st').innerHTML=m?(m.stato==='in_corso'?'⏳ Analisi in corso…':m.stato==='errore'?'⚠️ Ultima analisi non riuscita: '+esc(m.errore||''):'Ultima analisi: '+dt(m.aggiornato_il)):'Nessuna analisi ancora. Premi il pulsante: cerco sul web trend, formati e profili del tuo settore.';
-  $('mer-sint').innerHTML=(m&&m.stato==='pronta'&&m.dati.sintesi)?'<h3>Sintesi</h3><div class="agent"><b>Agente · dal web</b>'+esc(m.dati.sintesi)+'</div>':'';
+  $('mer-sint').innerHTML=(okAn(m)&&m.dati.sintesi)?'<h3>Sintesi</h3><div class="agent"><b>Agente · dal web</b>'+esc(m.dati.sintesi)+'</div>':'';
   var prop=list.filter(function(x){return x.stato==='proposto'});
   $('prop-list').innerHTML=prop.map(function(x){
     return '<div class="row" style="flex-wrap:wrap"><span class="pf IG">IG</span><div class="grow"><div class="t">@'+esc(x.handle)+'</div><div class="m">'+esc(x.perche||'')+(x.fonte?' · <a href="'+esc(x.fonte)+'" target="_blank" rel="noopener">fonte</a>':'')+'</div></div><div style="width:100%;padding-left:46px"><button class="btn sm" data-a="y" data-i="'+x.id+'">Segui</button> <button class="btn sm ghost" data-a="n" data-i="'+x.id+'">Scarta</button></div></div>'}).join('')||'<div class="m">Nessun profilo proposto. Dopo l\'analisi compaiono qui.</div>';
@@ -540,12 +541,12 @@ function renderMercato(){
     return '<tr><td>@'+esc(x.handle)+'</td>'+(q?'<td>'+q.followers.toLocaleString('it-IT')+'</td><td>'+q.post_a_settimana+'</td><td>'+pct(q.engagement_medio)+'</td><td>'+esc(q.per_tipo[0]?q.per_tipo[0].tipo:'—')+'</td>':'<td colspan="4" class="m">'+(x.errore?esc(x.errore):'non ancora letto')+'</td>')+'</tr>'}).join('')+'</table></div>':'<div class="m">Nessun profilo approvato. Approva quelli proposti qui sopra, poi premi "Leggi i profili approvati". Serve Instagram collegato e profili pubblici professionali.</div>';
   var d=T&&T.stato==='pronta'?T.dati:null;
   $('schemi').innerHTML=d&&d.letture?'<h3>Cosa li fa funzionare</h3><div class="agent"><b>Agente · dai post reali</b>'+esc(d.letture)+'</div>'+(d.top||[]).slice(0,5).map(function(p){return '<div class="row"><span class="pf IG">IG</span><div class="grow"><div class="t">@'+esc(p.handle)+' · '+esc(p.tipo)+' · '+pct(p.engagement)+'</div><div class="m">'+esc((p.caption||'').slice(0,120))+(p.url?' · <a href="'+esc(p.url)+'" target="_blank" rel="noopener">apri</a>':'')+'</div></div></div>'}).join(''):'';
-  var dm=m&&m.stato==='pronta'?m.dati:{};
+  var dm=okAn(m)?m.dati:{};
   $('formats').innerHTML=(dm.formati||[]).map(function(r){return '<div class="row"><div class="grow"><div class="t">'+esc(r.nome)+'</div><div class="m">'+esc(r.perche||'')+'</div></div></div>'}).join('')||'<div class="m">Dopo l\'analisi.</div>';
   $('trends').innerHTML=(dm.trend||[]).map(function(r){return '<div class="row"><div class="grow"><div class="t">'+esc(r.titolo)+'</div><div class="m">'+esc(r.dettaglio||'')+(r.fonte?' · <a href="'+esc(r.fonte)+'" target="_blank" rel="noopener">fonte</a>':'')+'</div></div></div>'}).join('')+((dm.hashtag||[]).length?'<div class="m" style="margin-top:8px">'+dm.hashtag.map(esc).join(' ')+'</div>':'')||'<div class="m">Dopo l\'analisi.</div>';
 }
 function renderIdee(){
-  var m=AN[cur].mercato,id=(m&&m.stato==='pronta'&&m.dati.idee)||[];
+  var m=AN[cur].mercato,id=(okAn(m)&&m.dati.idee)||[];
   $('idee-list').innerHTML=id.map(function(x,i){
     return '<div class="row"><span class="pf '+(PF[x.piattaforma]?x.piattaforma:'IG')+'">'+(PF[x.piattaforma]?x.piattaforma:'IG')+'</span><div class="grow"><div class="t">'+esc(x.titolo)+'</div><div class="m">'+esc((x.formato||'')+' · '+(x.perche||''))+'</div></div><button class="btn sm" data-i="'+i+'">Crea</button></div>'}).join('')||'<div class="m">Nessuna idea ancora: avvia l\'analisi del mercato dalla sezione Mercato.</div>';
   document.querySelectorAll('#idee-list button').forEach(function(b){b.onclick=function(){fromIdea(id[+b.dataset.i])}});
@@ -600,7 +601,7 @@ function renderAll(){
   $('k-eng').textContent=mi?mi.engagement_medio+'%':'—';$('k-engd').textContent=mi?'sugli ultimi '+mi.post_analizzati+' post':'dato reale dopo il collegamento';
   $('k-prog').textContent=L.filter(function(x){return x.st==='programmato'}).length;
   $('k-app').textContent=L.filter(function(x){return x.st==='da approvare'}).length;
-  var me_=AN[cur].mercato;$('advice').innerHTML='<b>Agente · '+esc(P.name)+'</b>'+(me_&&me_.stato==='pronta'&&me_.dati.sintesi?esc(me_.dati.sintesi):'Non ho ancora analizzato il mercato. Vai su Mercato e premi "Analizza il mercato ora": cerco sul web trend e profili del tuo settore.');
+  var me_=AN[cur].mercato;$('advice').innerHTML='<b>Agente · '+esc(P.name)+'</b>'+(okAn(me_)&&me_.dati.sintesi?esc(me_.dati.sintesi):'Non ho ancora analizzato il mercato. Vai su Mercato e premi "Analizza il mercato ora": cerco sul web trend e profili del tuo settore.');
   $('next-list').innerHTML=L.slice(0,4).map(function(x){
     return '<div class="row"><span class="pf '+x.p+'">'+x.p+'</span><div class="grow"><div class="t">'+esc(x.t)+'</div><div class="m">'+fd(x.d)+' · '+x.h+' · '+x.f+'</div></div>'+pillFor(x.st)+'</div>'}).join('')||'<div class="m">Nessuna uscita</div>';
   renderNewq();renderCal(L);renderMercato();renderIdee();renderRis();renderKn();renderCrea();

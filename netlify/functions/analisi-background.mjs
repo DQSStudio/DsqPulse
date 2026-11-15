@@ -15,7 +15,7 @@ export default async (req) => {
 Target: ${brand.target || ""}. Tono: ${brand.tono || ""}.
 ${KB[profilo] ? "Conoscenza del brand:\n" + KB[profilo] : ""}
 Usa la ricerca web per analizzare, oggi, il settore di questo brand sui social (Instagram prima di tutto, poi TikTok, Pinterest, YouTube) in Italia. Trova: quali formati e temi stanno funzionando, trend e hashtag attuali, e 8-10 profili Instagram reali e pubblici (studi, designer, creator del settore, italiani o internazionali con pubblico ampio) che vale la pena osservare.
-Regole: usa SOLO ciò che trovi nelle fonti; se non sei sicuro che un account esista o sia attivo non includerlo; non inventare numeri di follower o statistiche; ogni trend e ogni profilo devono avere l'URL della fonte. Scrivi in italiano.
+Regole: usa SOLO ciò che trovi nelle fonti; se non sei sicuro che un account esista o sia attivo non includerlo; non inventare numeri di follower o statistiche; dentro i testi del JSON non usare mai virgolette doppie (usa apostrofi) e niente a capo; ogni trend e ogni profilo devono avere l'URL della fonte. Scrivi in italiano.
 Rispondi SOLO con JSON valido: {"sintesi":"4-6 righe","formati":[{"nome":"","perche":""}],"trend":[{"titolo":"","dettaglio":"","fonte":"url"}],"hashtag":["#..."],"idee":[{"titolo":"","piattaforma":"IG|TT|PN|YT","formato":"","perche":""}],"profili":[{"handle":"senza @","perche":"","fonte":"url"}]}`;
     let messages = [{ role: "user", content: prompt }], text = "";
     for (let i = 0; i < 4; i++) {
@@ -27,9 +27,16 @@ Rispondi SOLO con JSON valido: {"sintesi":"4-6 righe","formati":[{"nome":"","per
       if (j.stop_reason === "pause_turn") { messages = [...messages, { role: "assistant", content: j.content }]; continue; }
       break;
     }
-    const m = text.match(/\{[\s\S]*\}/);
-    if (!m) throw new Error("risposta non leggibile");
-    const dati = JSON.parse(m[0]);
+    const estrai = (t) => { const m = t.match(/\{[\s\S]*\}/); if (!m) throw new Error("risposta non leggibile"); return JSON.parse(m[0]); };
+    let dati;
+    try { dati = estrai(text); }
+    catch {
+      // riparazione: chiedo a Claude di restituire lo stesso contenuto come JSON valido
+      const r2 = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: { "x-api-key": process.env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+        body: JSON.stringify({ model: MODEL, max_tokens: 8000, messages: [{ role: "user", content: "Questo JSON è malformato. Restituiscilo identico nei contenuti ma valido (escape corretto di virgolette e a capo). Rispondi solo con il JSON.\n\n" + text }] }) });
+      const j2 = await r2.json();
+      dati = estrai((j2.content || []).map((b) => b.text || "").join(""));
+    }
     await set("pronta", dati, null);
     for (const p of dati.profili || []) if (p.handle) await rpc("pulse_fn_seguiti_add", { p_org: ORG, p_profilo: profilo, p_handle: p.handle, p_perche: p.perche || null, p_fonte: p.fonte || null });
   } catch (e) { await set("errore", null, String(e.message).slice(0, 300)); }
