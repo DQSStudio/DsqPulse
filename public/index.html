@@ -303,7 +303,7 @@ svg text{font-family:'Outfit',sans-serif}
     <h3>1 · Carica i documenti</h3>
     <div class="card">
       <p class="m" style="margin-top:0">Anche documenti già pronti: presentazioni, domande già compilate, analisi di mercato o di pubblico. L'agente li legge, fa suo ciò che serve e ti chiede solo ciò che non gli è chiaro.</p>
-      <label class="filebtn"><input type="file" id="pdfin" accept="application/pdf,.txt,.md" multiple>Tocca per aggiungere documenti<br><span class="m">PDF con testo selezionabile, oppure file .txt</span></label>
+      <label class="filebtn"><input type="file" id="pdfin" accept="application/pdf,image/*,.txt,.md" multiple>Tocca per aggiungere documenti<br><span class="m">PDF, immagini (foto, screenshot) o file .txt</span></label>
       <div id="files" style="margin-top:8px"></div>
     </div>
     <div id="kn-q-wrap"><h3>2 · Domande dell'agente</h3><div class="card" id="qlist"></div></div>
@@ -891,6 +891,22 @@ function loadPdfjs(){return new Promise(function(res,rej){
   var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/'+PDFV+'/pdf.min.js';
   s.onload=function(){pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/'+PDFV+'/pdf.worker.min.js';res()};
   s.onerror=function(){rej(new Error('lettore PDF non disponibile'))};document.head.appendChild(s)})}
+function riduciImmagine(f){return new Promise(function(res,rej){
+  var u=URL.createObjectURL(f),im=new Image();
+  im.onerror=function(){URL.revokeObjectURL(u);rej(new Error('immagine non leggibile'))};
+  im.onload=function(){
+    var m=1600,q=0.82,out;
+    for(var t=0;t<8;t++){
+      var sc=Math.min(1,m/Math.max(im.width,im.height)),c=document.createElement('canvas');
+      c.width=Math.round(im.width*sc);c.height=Math.round(im.height*sc);
+      c.getContext('2d').drawImage(im,0,0,c.width,c.height);
+      out=c.toDataURL('image/jpeg',q);
+      if(out.length<230000)break;
+      if(q>0.55)q-=0.1;else m=Math.round(m*0.8)}
+    URL.revokeObjectURL(u);
+    if(out.length>=240000)return rej(new Error('immagine troppo grande'));
+    res({media_type:'image/jpeg',data:out.split(',')[1]})};
+  im.src=u})}
 async function leggiFile(f){
   if(/\.(txt|md)$/i.test(f.name)||(f.type||'').indexOf('text')===0)return await f.text();
   await loadPdfjs();var pdf=await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise,out=[];
@@ -901,11 +917,13 @@ $('pdfin').onchange=async function(e){
   for(var n=0;n<files.length;n++){var f=files[n];
     try{
       toast('Leggo '+f.name+'…');
-      var t=(await leggiFile(f)).replace(/[ \t]+/g,' ').replace(/\n\s*\n+/g,'\n\n').trim();
-      if(t.length<200)throw new Error('quasi senza testo: forse è un PDF fatto di immagini. Esportalo con testo selezionabile');
+      var isImg=(f.type||'').indexOf('image/')===0||/\.(jpe?g|png|webp|heic)$/i.test(f.name),immagine=null,t='';
+      if(isImg){immagine=await riduciImmagine(f)}
+      else{t=(await leggiFile(f)).replace(/[ \t]+/g,' ').replace(/\n\s*\n+/g,'\n\n').trim();
+      if(t.length<200)throw new Error('quasi senza testo: forse è un PDF fatto di immagini. Caricalo come screenshot o immagine')}
       var row=await sbq('pulse_documenti',{method:'POST',body:{org_id:ORG,profilo:k,nome:f.name}});
       ST[k].docs.push(row[0]);renderKn();
-      await impara({modo:'doc',profilo:k,doc_id:row[0].id,nome:f.name,testo:t});
+      await impara({modo:'doc',profilo:k,doc_id:row[0].id,nome:f.name,testo:t,immagine:immagine});
     }catch(err){toast(f.name+': '+err.message)}
   }
   pollKn(0);
