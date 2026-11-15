@@ -818,7 +818,7 @@ async function loadLib(){try{LIB=await sbq('pulse_creazioni?select=id,profilo,ti
 async function salvaLavoro(){var R=W.result;if(!R||R.loading||!R.c)return;
   try{if(R.gfx&&!R.mediaUrl)await uploadGfx();
     var gs=R.gfx&&!R.gfx.ai?R.gfx.spec:null;
-    var d={p:R.p,f:R.f,t:R.t,c:R.c,cap:R.cap,mat:R.mat||'',rich:R.rich||'',esempio:R.esempio||null,aiUrl:R.aiUrl||null,aiPrompt:R.aiPrompt||null,video:R.video||null,baseUrl:R.baseUrl||null,ai:!!(R.gfx&&R.gfx.ai),spec:gs,urls:R.video?[]:(R.mediaUrls||(R.mediaUrl?[R.mediaUrl]:[]))};
+    var d={p:R.p,f:R.f,t:R.t,c:R.c,cap:R.cap,mat:R.mat||'',rich:R.rich||'',esempio:R.esempio||null,fedelta:R.fedelta||null,aiUrl:R.aiUrl||null,aiPrompt:R.aiPrompt||null,video:R.video||null,baseUrl:R.baseUrl||null,ai:!!(R.gfx&&R.gfx.ai),spec:gs,urls:R.video?[]:(R.mediaUrls||(R.mediaUrl?[R.mediaUrl]:[]))};
     var body={titolo:String((R.c&&R.c.hook)||R.t||'').slice(0,90),dati:d,aggiornato_il:new Date().toISOString()};
     if(R.cid){await sbq('pulse_creazioni?id=eq.'+R.cid,{method:'PATCH',body:body})}
     else{body.org_id=ORG;body.profilo=cur;var rr=await sbq('pulse_creazioni',{method:'POST',body:body});R.cid=rr[0].id}
@@ -826,7 +826,7 @@ async function salvaLavoro(){var R=W.result;if(!R||R.loading||!R.c)return;
   }catch(e){toast('Salvataggio bozza non riuscito: '+e.message)}}
 function apriLavoro(id){var x=LIB.filter(function(l){return l.id===id})[0];if(!x)return;var d=x.dati||{};
   W={p:d.p,f:d.f,mat:d.mat};
-  var R={p:d.p,f:d.f,c:d.c,cap:d.cap,mat:d.mat,t:d.t,rich:d.rich||'',esempio:d.esempio||null,cid:x.id,aiUrl:d.aiUrl,aiPrompt:d.aiPrompt,video:d.video,baseUrl:d.baseUrl,loading:false};
+  var R={p:d.p,f:d.f,c:d.c,cap:d.cap,mat:d.mat,t:d.t,rich:d.rich||'',esempio:d.esempio||null,fedelta:d.fedelta||null,cid:x.id,aiUrl:d.aiUrl,aiPrompt:d.aiPrompt,video:d.video,baseUrl:d.baseUrl,loading:false};
   var u=d.urls||[];
   if(d.video){R.mediaUrl=d.video;if(d.baseUrl)R.gfx={spec:{nota:d.aiPrompt?'Immagine AI: '+d.aiPrompt:''},url:d.baseUrl,ai:true}}
   else if(u.length){R.mediaUrl=u[0];if(u.length>1)R.mediaUrls=u;
@@ -840,21 +840,36 @@ function libHtml(){var L=LIB.filter(function(l){return l.profilo===cur});if(!L.l
     return '<div class="card" style="display:flex;gap:12px;align-items:center;margin:8px 0;padding:10px">'+(th?'<img src="'+esc(th)+'" style="width:56px;height:70px;object-fit:cover;border-radius:8px;flex:none">':'<div style="width:56px;height:70px;border-radius:8px;background:#eee;flex:none"></div>')+
       '<div style="flex:1;min-width:0"><div class="t" style="font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(l.titolo||d.t||'Senza titolo')+'</div><div class="m" style="margin:0">'+esc(PF[d.p]||'')+' · '+esc(d.f||'')+(d.video?' · video':'')+' · '+dt.getDate()+'/'+(dt.getMonth()+1)+'</div></div>'+
       '<button class="btn sm" data-lib="'+l.id+'">Apri</button><button class="btn sm ghost" data-libdel="'+l.id+'">✕</button></div>'}).join('')}
-document.addEventListener('click',function(e){var t=e.target;if(!t||!t.dataset)return;if(t.dataset.lib)apriLavoro(t.dataset.lib);if(t.dataset.libdel)eliminaLavoro(t.dataset.libdel);if(t.dataset.gx==='chiudi'){W.result=null;renderCrea()}});
+document.addEventListener('click',function(e){var t=e.target;if(t&&t.id==='gx-eimg'&&W.result){var rc=t.getBoundingClientRect(),R=W.result;R.punti=R.punti||[];if(R.punti.length<5){R.punti.push({x:Math.round((e.clientX-rc.left)/rc.width*1000)/10,y:Math.round((e.clientY-rc.top)/rc.height*1000)/10,t:''});renderCrea()}return}
+  if(t&&t.dataset&&t.dataset.ptdel!=null&&t.dataset.ptdel!==''&&W.result){W.result.punti.splice(+t.dataset.ptdel,1);renderCrea();return}
+  if(!t||!t.dataset)return;if(t.dataset.gx==='mod'){aiModifica();return}if(t.dataset.lib)apriLavoro(t.dataset.lib);if(t.dataset.libdel)eliminaLavoro(t.dataset.libdel);if(t.dataset.gx==='chiudi'){W.result=null;renderCrea()}});
 async function falCall(body){var r=await fetch('/.netlify/functions/fal',{method:'POST',headers:{'content-type':'application/json',Authorization:'Bearer '+AUTH.access},body:JSON.stringify(body)});var j=await r.json().catch(function(){return{}});if(!r.ok)throw new Error(j.error||('errore '+r.status));return j}
 async function falAspetta(st,tipo,max){for(var i=0;i<max;i++){await new Promise(function(r){setTimeout(r,4000)});var x=await falCall({azione:'stato',status_url:st.status_url,response_url:st.response_url,tipo:tipo});if(x.stato==='pronto')return x;if(x.stato==='errore')throw new Error(x.error||'generazione non riuscita')}throw new Error('tempo scaduto, riprova')}
-async function aiImmagine(modo){var R=W.result;if(!R||R.aiBusy)return;var inp=document.getElementById('gx-rich');var rich=inp?inp.value:R.rich||'';R.rich=rich;R.aiErr=null;R.aiBusy='Sto creando l\'immagine… (circa 30 secondi)';renderCrea();
-  var st,x,ultimo='';
-  for(var tent=0;tent<2&&!x;tent++){
-    try{st=await falCall({azione:'immagine',modo:modo||'foto',senza_rif:tent===1,brand:brandOf(cur),identita:Object.assign({},ST[cur].identita,giOf(cur)),profilo:cur,tema:R.t,hook:(R.c||{}).hook||'',scene:(R.c||{}).scene||[],caption:R.cap||'',richiesta:rich,esempio:R.esempio||'',formato:R.f,piattaforma:PF[R.p]});
-      x=await falAspetta(st,'immagine',30)}
-    catch(e){ultimo=e.message;x=null;if(modo!=='post')break}}
+async function aiImmagine(modo){var R=W.result;if(!R||R.aiBusy)return;var inp=document.getElementById('gx-rich');var rich=inp?inp.value:R.rich||'';var fed=document.getElementById('gx-fed');if(fed)R.fedelta=fed.value;R.rich=rich;R.aiErr=null;R.aiBusy='Sto creando l\'immagine… (circa 30-60 secondi)';renderCrea();
+  var st,x,ultimo='',tent=[['gpt',false],['gpt',true],['nano',false]];
+  for(var i=0;i<tent.length&&!x;i++){
+    if(modo!=='post'&&tent[i][1])continue;
+    try{st=await falCall({azione:'immagine',modo:modo||'foto',motore:tent[i][0],senza_rif:tent[i][1],fedelta:R.fedelta||'lettera',brand:brandOf(cur),identita:Object.assign({},ST[cur].identita,giOf(cur)),profilo:cur,tema:R.t,hook:(R.c||{}).hook||'',scene:(R.c||{}).scene||[],caption:R.cap||'',richiesta:rich,esempio:R.esempio||'',formato:R.f,piattaforma:PF[R.p]});
+      x=await falAspetta(st,'immagine',45)}
+    catch(e){ultimo=e.message;x=null}}
   if(!x){R.aiErr=ultimo;toast('Immagine non riuscita')}
-  else{try{
-    var im=new Image();await new Promise(function(ok,ko){im.onload=ok;im.onerror=function(){ko(new Error('immagine non leggibile'))};im.src=x.data});
-    R.aiImg=im;R.photoImg=(modo==='post')?null:im;R.video=null;R.baseUrl=null;R.mediaUrl=null;R.mediaUrls=null;R.aiPrompt=st.prompt;R.gfx={spec:{nota:'Immagine AI: '+st.prompt},url:x.data,ai:true};caricaCosto();
-    try{R.aiUrl=await uploadMedia(b64Blob(x.data.split(',')[1],'image/jpeg'),cur+'/ai-'+Date.now()+'.jpg');R.mediaUrl=R.aiUrl}catch(e){toast('Immagine non salvata: '+e.message)}
-  }catch(e){toast('Immagine non riuscita: '+e.message)}}
+  else{try{await aiApplica(x.data,st.prompt,modo)}catch(e){toast('Immagine non riuscita: '+e.message)}}
+  R.aiBusy=null;renderCrea();salvaLavoro()}
+async function aiApplica(dataUrl,prompt,modo){var R=W.result;
+  var im=new Image();await new Promise(function(ok,ko){im.onload=ok;im.onerror=function(){ko(new Error('immagine non leggibile'))};im.src=dataUrl});
+  R.aiImg=im;R.photoImg=(modo==='post'||modo==='modifica')?null:im;R.video=null;R.baseUrl=null;R.mediaUrl=null;R.mediaUrls=null;R.aiPrompt=prompt;R.punti=[];R.gfx={spec:{nota:'Immagine AI: '+prompt},url:dataUrl,ai:true};caricaCosto();
+  try{R.aiUrl=await uploadMedia(b64Blob(dataUrl.split(',')[1],'image/jpeg'),cur+'/ai-'+Date.now()+'.jpg');R.mediaUrl=R.aiUrl}catch(e){toast('Immagine non salvata: '+e.message)}}
+async function aiModifica(){var R=W.result;if(!R||R.aiBusy||!R.aiUrl)return;
+  var gen=document.getElementById('gx-mod');var istr=gen?gen.value.trim():'';var pts=(R.punti||[]).filter(function(p){return p.t&&p.t.trim()||true});
+  if(!istr&&!(R.punti||[]).some(function(p){return p.t&&p.t.trim()})){toast('Scrivi cosa vuoi cambiare');return}
+  R.aiErr=null;R.aiBusy='Sto applicando le modifiche… (circa 30-60 secondi)';renderCrea();
+  try{var marcata='';
+    if((R.punti||[]).length&&R.aiImg){var c=document.createElement('canvas');c.width=R.aiImg.naturalWidth;c.height=R.aiImg.naturalHeight;var x=c.getContext('2d');x.drawImage(R.aiImg,0,0);
+      R.punti.forEach(function(p,i){var cx=p.x/100*c.width,cy=p.y/100*c.height,r=c.width*0.03;x.fillStyle='rgba(230,30,60,.9)';x.beginPath();x.arc(cx,cy,r,0,7);x.fill();x.fillStyle='#fff';x.font='bold '+Math.round(r*1.3)+'px sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText(String(i+1),cx,cy+1)});
+      marcata=await uploadMedia(b64Blob(c.toDataURL('image/jpeg',0.9).split(',')[1],'image/jpeg'),cur+'/marcata-'+Date.now()+'.jpg')}
+    var st=await falCall({azione:'modifica',image_url:R.aiUrl,marcata:marcata,istruzioni:istr,punti:R.punti||[]});
+    var x2=await falAspetta(st,'immagine',45);await aiApplica(x2.data,R.aiPrompt||'','modifica')}
+  catch(e){R.aiErr=e.message;toast('Modifica non riuscita')}
   R.aiBusy=null;renderCrea();salvaLavoro()}
 async function aiVideo(d){var R=W.result;if(!R||R.aiBusy||!R.gfx)return;var inp=document.getElementById('gx-rich');var rich=inp?inp.value:R.rich||'';R.rich=rich;R.aiBusy='Sto creando il video… (1-3 minuti, puoi restare qui)';renderCrea();
   try{var u=await uploadMedia(b64Blob(R.gfx.url.split(',')[1],'image/jpeg'),cur+'/base-'+Date.now()+'.jpg');
@@ -867,11 +882,17 @@ function aiBlock(R){
   if(R.aiBusy)return h+'<div class="m">⏳ '+esc(R.aiBusy)+'</div>';
   if(R.aiErr)h+='<div class="m" style="color:#b3261e;word-break:break-word">⚠️ '+esc(R.aiErr)+'</div>';
   var reel=/reel|video|stori/i.test(R.f);
-  h+='<div style="margin-bottom:10px">'+(R.esempio?'<div style="display:flex;gap:10px;align-items:center"><img src="'+esc(R.esempio)+'" style="width:56px;height:70px;object-fit:cover;border-radius:8px;border:1px solid #ddd"><div class="m" style="margin:0;flex:1">Post di esempio: l\'agente ricalca questo layout, cambiando solo i testi.</div><button class="btn sm ghost" data-gx="noex">✕</button></div>':'<label class="btn sm ghost" style="cursor:pointer;display:inline-block">Carica un post di esempio<input type="file" id="gx-ex" accept="image/*" style="display:none"></label><div class="m" style="margin-top:4px">Un tuo post fatto bene: il nuovo viene creato con lo stesso layout, font e colori.</div>')+'</div>';
+  h+='<div style="margin-bottom:10px">'+(R.esempio?'<div style="display:flex;gap:10px;align-items:center"><img src="'+esc(R.esempio)+'" style="width:56px;height:70px;object-fit:cover;border-radius:8px;border:1px solid #ddd"><div class="m" style="margin:0;flex:1">Post di esempio caricato.<br><select id="gx-fed" style="margin-top:4px"><option value="lettera"'+(R.fedelta!=='ispira'?' selected':'')+'>Segui alla lettera</option><option value="ispira"'+(R.fedelta==='ispira'?' selected':'')+'>Solo ispirazione</option></select></div><button class="btn sm ghost" data-gx="noex">✕</button></div>':'<label class="btn sm ghost" style="cursor:pointer;display:inline-block">Carica un post di esempio<input type="file" id="gx-ex" accept="image/*" style="display:none"></label><div class="m" style="margin-top:4px">Un tuo post fatto bene: il nuovo viene creato con lo stesso layout, font e colori.</div>')+'</div>';
   h+='<input id="gx-rich" value="'+esc(R.rich||'')+'" placeholder="Cosa vuoi vedere? (facoltativo)" style="width:100%;margin-bottom:8px">'+
     '<div style="display:flex;flex-wrap:wrap;gap:8px"><button class="btn sm" data-gx="aipost">'+(R.f==='Carousel'?'Copertina completa con AI':'Post completo con AI (con testo)')+'</button><button class="btn sm ghost" data-gx="ai">Solo immagine (senza testo)</button>'+
     (reel&&R.gfx?'<button class="btn sm" data-gx="vid5">Anima in video 5s</button><button class="btn sm ghost" data-gx="vid10">10s</button>':'')+'</div>'+
     '<div class="m" style="margin-top:6px">Post completo e immagine ≈ 15 cent, video ≈ 35 cent (5s). Il post completo usa le tue grafiche di riferimento e scrive i testi in italiano; scrivi sopra cosa vuoi (soggetto, testi, stile) per un risultato più preciso.'+(reel&&!R.gfx?' Per un reel prima crea l\'immagine o la grafica, poi la animi.':'')+'</div>';
+  if(R.gfx&&R.gfx.ai&&R.aiUrl&&!R.video){
+    h+='<h3 style="margin-top:14px">Modifica l\'immagine</h3><div class="m" style="margin-bottom:6px">Tocca un punto dell\'immagine per indicare dove vuoi intervenire, poi scrivi cosa cambiare. Puoi segnare fino a 5 punti.</div>'+
+      '<div style="position:relative;display:inline-block;max-width:340px;width:100%"><img id="gx-eimg" src="'+esc(R.gfx.url)+'" style="width:100%;border-radius:12px;display:block;touch-action:manipulation">'+(R.punti||[]).map(function(p,i){return '<div style="position:absolute;left:'+p.x+'%;top:'+p.y+'%;transform:translate(-50%,-50%);width:26px;height:26px;border-radius:50%;background:#e61e3c;color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;pointer-events:none;border:2px solid #fff">'+(i+1)+'</div>'}).join('')+'</div>'+
+      (R.punti||[]).map(function(p,i){return '<div style="display:flex;gap:6px;align-items:center;margin-top:6px"><b style="width:20px">'+(i+1)+'</b><input data-pt="'+i+'" value="'+esc(p.t||'')+'" placeholder="Cosa cambiare qui (es. titolo: \u201C…\u201D, colore bordeaux)" style="flex:1"><button class="btn sm ghost" data-ptdel="'+i+'">✕</button></div>'}).join('')+
+      '<textarea id="gx-mod" rows="2" placeholder="Istruzioni generali (facoltative): es. usa lo stesso font del riferimento, togli il sottotitolo" style="width:100%;margin-top:8px"></textarea>'+
+      '<div style="margin-top:8px"><button class="btn sm" data-gx="mod">Applica modifiche</button></div>'}
   if(R.video)h+='<video src="'+R.video+'" controls playsinline loop style="width:100%;max-width:340px;border-radius:12px;margin-top:8px"></video><div class="m">✓ Video pronto per la pubblicazione.</div>';
   return h}
 function gfxBlock(R){
@@ -888,6 +909,7 @@ document.addEventListener('click',function(e){var a=e.target&&e.target.dataset&&
   if(a==='nuova'){R.gv=(R.gfx?(R.gv||0)+1:0);creaGrafica(R.gv)}
   if(a==='nofoto'){R.photoImg=null;ridisegna()}
   if(a==='noex'){R.esempio=null;renderCrea();salvaLavoro()}if(a==='ai')aiImmagine('foto');if(a==='aipost')aiImmagine('post');if(a==='vid5')aiVideo(5);if(a==='vid10')aiVideo(10)});
+document.addEventListener('input',function(e){var t=e.target;if(t&&t.dataset&&t.dataset.pt!=null&&t.dataset.pt!==''&&W.result&&W.result.punti&&W.result.punti[+t.dataset.pt])W.result.punti[+t.dataset.pt].t=t.value});
 document.addEventListener('change',async function(e){if(e.target&&e.target.id==='gx-ex'){var fx=e.target.files[0];if(!fx||!W.result)return;try{toast('Carico l\'esempio…');var im2=await riduciImmagine(fx);W.result.esempio=await uploadMedia(b64Blob(im2.data,'image/jpeg'),cur+'/esempio-'+Date.now()+'.jpg');renderCrea();salvaLavoro()}catch(err){toast('Esempio non caricato: '+err.message)}return}
 if(!e.target||e.target.id!=='gx-photo')return;var f=e.target.files[0];if(!f)return;
   var u=URL.createObjectURL(f),im=new Image();im.onload=function(){W.result.photoImg=im;W.result.gfx.spec.foto=true;ridisegna()};im.onerror=function(){toast('Foto non leggibile')};im.src=u});

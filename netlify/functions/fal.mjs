@@ -1,7 +1,7 @@
 // Immagini e video AI su richiesta (fal.ai). Azioni: immagine, video, stato.
 import { userIsMember, logUso, rpc, ORG, SB, SBK, getConoscenza } from "./_lib.mjs";
 const MODEL = "claude-sonnet-5-5";
-const IMG = "fal-ai/nano-banana-pro", IMG_EDIT = "fal-ai/nano-banana-pro/edit", VID = "fal-ai/kling-video/v2.1/standard/image-to-video";
+const GPT = "openai/gpt-image-2", GPT_EDIT = "openai/gpt-image-2/edit", IMG = "fal-ai/nano-banana-pro", IMG_EDIT = "fal-ai/nano-banana-pro/edit", VID = "fal-ai/kling-video/v2.1/standard/image-to-video";
 const FAL = () => ({ Authorization: "Key " + process.env.FAL_KEY, "content-type": "application/json" });
 const okHost = (u) => /^https:\/\/([a-z0-9.-]+\.fal\.(run|media|ai)\/|storage\.googleapis\.com\/falserverless\/)/.test(u);
 
@@ -25,7 +25,7 @@ export default async (req) => {
   const { azione } = b;
   try {
     if (azione === "immagine") {
-      const { brand = {}, identita = {}, profilo = "", tema = "", hook = "", scene = [], caption = "", richiesta = "", formato = "", piattaforma = "", modo = "foto", senza_rif = false, esempio = "" } = b;
+      const { brand = {}, identita = {}, profilo = "", tema = "", hook = "", scene = [], caption = "", richiesta = "", formato = "", piattaforma = "", modo = "foto", senza_rif = false, esempio = "", motore = "gpt", fedelta = "lettera" } = b;
       const ar = /pin/i.test(formato) ? "2:3" : /post|carosel|carousel/i.test(formato) ? "4:5" : "9:16";
       const post = modo === "post";
       const kn = await getConoscenza(profilo).catch(() => "");
@@ -37,19 +37,40 @@ export default async (req) => {
       const prompt = post
         ? await promptDa(`Sei il direttore creativo di ${brand.name || "un brand"}. Scrivi UN prompt in inglese (max 170 parole) per un generatore di immagini che sa scrivere testo (Nano Banana Pro) per produrre la GRAFICA SOCIAL FINITA di questo contenuto, pronta da pubblicare.
 ${comune}
-${ex && refBlocks.length ? "Ti allego UN POST DI ESEMPIO scelto dal titolare: la nuova grafica deve RICALCARE ESATTAMENTE lo stesso layout (posizione di ogni elemento, dimensioni e peso dei caratteri, font, colori, linee, margini, wordmark, stile di eventuali foto), cambiando solo i testi e, se serve, il soggetto visivo. Scrivi nel prompt 'replicate the layout, typography and colors of the reference image exactly, only change the text to: ...'." : refBlocks.length ? "Ti allego grafiche di riferimento del brand: la nuova grafica deve avere la stessa impostazione (gerarchia, spazi, linee sottili, allineamento, wordmark in alto, stile tipografico) ma contenuto diverso; indicalo nel prompt come 'match the visual style of the reference images'." : ""}
+${ex && refBlocks.length && fedelta === "ispira" ? "Ti allego UN POST DI ESEMPIO scelto dal titolare: usalo come ispirazione per stile, font, colori e atmosfera, ma la composizione può essere diversa e nuova." : ex && refBlocks.length ? "Ti allego UN POST DI ESEMPIO scelto dal titolare: la nuova grafica deve RICALCARE ESATTAMENTE lo stesso layout (posizione di ogni elemento, dimensioni e peso dei caratteri, font, colori, linee, margini, wordmark, stile di eventuali foto), cambiando solo i testi e, se serve, il soggetto visivo. Scrivi nel prompt 'replicate the layout, typography and colors of the reference image exactly, only change the text to: ...'." : refBlocks.length ? "Ti allego grafiche di riferimento del brand: la nuova grafica deve avere la stessa impostazione (gerarchia, spazi, linee sottili, allineamento, wordmark in alto, stile tipografico) ma contenuto diverso; indicalo nel prompt come 'match the visual style of the reference images'." : ""}
 Nel prompt scrivi: formato verticale ${ar}, layout preciso (wordmark in alto a sinistra con linea sottile, titolo grande, sottotitolo, eventuale elemento visivo coerente con il tema, firma in basso), colori in esadecimale, font descritto (es. clean geometric sans-serif), e i TESTI ESATTI in italiano tra virgolette (titolo massimo 8 parole, sottotitolo massimo 12 parole, eventuale invito all'azione breve). Il testo deve essere corretto, senza refusi, senza testo extra. Nessun dato inventato. Se il brand vende software, l'eventuale visual mostra il prodotto o il lavoro dello studio in modo astratto e pulito. Rispondi solo con il prompt.`, refBlocks)
         : await promptDa(`Sei il direttore creativo di ${brand.name || "un brand"}. Scrivi UN prompt in inglese (max 100 parole) per un generatore di immagini fotografiche che produca l'immagine giusta per QUESTO contenuto.
 ${comune}
 ${refBlocks.length ? "Ti allego grafiche di riferimento del brand: l'immagine deve essere coerente per atmosfera, luce e palette." : ""}
 REGOLE: l'immagine deve rappresentare in modo diretto e riconoscibile il soggetto del contenuto e il mondo reale del brand (pubblico, ambiente di lavoro, prodotti), mai texture astratte o oggetti casuali. Se il brand vende software, mostra ciò che il software cambia nel lavoro (studio di architettura, scrivania con monitor e planimetrie, modelli, cantiere) con schermi dall'interfaccia astratta. Se è interior design, ambienti reali e curati. Descrivi soggetto, ambiente, luce, inquadratura, materiali, atmosfera; look fotografico editoriale. Nessun testo, logo, scritta, volto riconoscibile. Rispondi solo con il prompt.`, refBlocks);
-      const input = { prompt, aspect_ratio: ar, resolution: "1K", num_images: 1, output_format: "jpeg" };
-      let ep = IMG; if (post && refs.length) { ep = IMG_EDIT; input.image_urls = refs; }
+      const dim = { "4:5": { width: 1024, height: 1280 }, "9:16": { width: 1024, height: 1824 }, "2:3": { width: 1024, height: 1536 } }[ar];
+      let ep, input;
+      if (motore === "gpt") {
+        ep = post && refs.length ? GPT_EDIT : GPT;
+        input = { prompt, image_size: dim, quality: "medium", num_images: 1, output_format: "jpeg" };
+        if (ep === GPT_EDIT) input.image_urls = refs;
+      } else {
+        ep = IMG; input = { prompt, aspect_ratio: ar, resolution: "1K", num_images: 1, output_format: "jpeg" };
+        if (post && refs.length) { ep = IMG_EDIT; input.image_urls = refs; }
+      }
       const r = await fetch("https://queue.fal.run/" + ep, { method: "POST", headers: FAL(), body: JSON.stringify(input) });
       const j = await r.json();
       if (!r.ok) await dbg("start " + r.status + " " + JSON.stringify(j));
       if (!r.ok) return Response.json({ error: "fal " + r.status + " " + JSON.stringify(j).slice(0, 300) }, { status: 502 });
-      await consumo("immagine-ai", ep, 0.15);
+      await consumo("immagine-ai", ep, motore === "gpt" ? 0.06 : 0.15);
+      return Response.json({ tipo: "immagine", prompt, status_url: j.status_url, response_url: j.response_url });
+    }
+    if (azione === "modifica") {
+      const { image_url = "", marcata = "", istruzioni = "", punti = [] } = b;
+      const okSb = (u) => /^https:\/\/qudoygcfphqhhyenpwlr\.supabase\.co\/storage\//.test(u);
+      if (!okSb(image_url)) return Response.json({ error: "immagine non valida" }, { status: 400 });
+      const imgs = [image_url]; if (okSb(marcata)) imgs.push(marcata);
+      const pos = (punti || []).slice(0, 8).map((p, i) => `Point ${i + 1}: about ${Math.round(p.x)}% from the left and ${Math.round(p.y)}% from the top` + (p.t ? ` -> ${String(p.t).slice(0, 200)}` : "")).join("\n");
+      const prompt = `Edit the FIRST image. Apply ONLY the requested changes below and keep everything else exactly identical: same layout, positions, fonts, sizes, colors, other texts, background and style. All visible text must stay in Italian and spelled exactly as written in the instructions.${imgs.length > 1 ? " The SECOND image is the same picture with numbered red markers showing the spots referred to below: use it only to locate the spots, never draw the markers or numbers in the result." : ""}\nREQUESTED CHANGES:\n${String(istruzioni).slice(0, 800)}\n${pos}`;
+      const r = await fetch("https://queue.fal.run/" + GPT_EDIT, { method: "POST", headers: FAL(), body: JSON.stringify({ prompt, image_urls: imgs, image_size: "auto", quality: "medium", num_images: 1, output_format: "jpeg" }) });
+      const j = await r.json();
+      if (!r.ok) { await dbg("modifica " + r.status + " " + JSON.stringify(j)); return Response.json({ error: "fal " + r.status + " " + JSON.stringify(j).slice(0, 300) }, { status: 502 }); }
+      await consumo("modifica-ai", GPT_EDIT, 0.06);
       return Response.json({ tipo: "immagine", prompt, status_url: j.status_url, response_url: j.response_url });
     }
     if (azione === "video") {

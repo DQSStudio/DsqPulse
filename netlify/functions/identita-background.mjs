@@ -30,7 +30,7 @@ export default async (req) => {
     const c = p.colori || {};
     const out = { font_titoli: FONTS.includes(p.font_titoli) ? p.font_titoli : "Jost", font_testo: FONTS.includes(p.font_testo) ? p.font_testo : "Jost",
       colori: { sfondo: hex(c.sfondo, "#F4EFE6"), testo: hex(c.testo, "#111111"), primario: hex(c.primario, "#C8B79A"), secondario: hex(c.secondario, "#6E2635") }, layout: p.layout === "editoriale" ? "editoriale" : "classico", peso_titoli: ["300", "400", "500", "700"].includes(String(p.peso_titoli)) ? String(p.peso_titoli) : "400", stile: p.stile || "", nota: p.nota || "" };
-    await set({ proposta: out, proposta_stato: "pronta" });
+    await set(da_instagram ? { proposta: out, proposta_stato: "usata", font_titoli: out.font_titoli, font_testo: out.font_testo, colori: out.colori, stile: out.stile, layout: out.layout, peso_titoli: out.peso_titoli } : { proposta: out, proposta_stato: "pronta" });
   } catch (e) { await set({ proposta_stato: "errore", proposta_errore: String(e.message).slice(0, 200) }).catch(() => {}); }
   return new Response("ok");
 };
