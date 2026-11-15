@@ -1,6 +1,6 @@
 // Analisi di mercato con ricerca web reale (Claude + web search). Salva risultato e profili proposti.
 import { readFileSync } from "node:fs";
-import { ORG, rpc, userIsMember, logUso } from "./_lib.mjs";
+import { ORG, rpc, userIsMember, logUso, pulisci } from "./_lib.mjs";
 const KB = { studio: readFileSync(new URL("./brand-studio.txt", import.meta.url), "utf8") };
 const MODEL = "claude-sonnet-5-5";
 export default async (req) => {
@@ -15,7 +15,7 @@ export default async (req) => {
 Target: ${brand.target || ""}. Tono: ${brand.tono || ""}.
 ${KB[profilo] ? "Conoscenza del brand:\n" + KB[profilo] : ""}
 Usa la ricerca web per analizzare, oggi, il settore di questo brand sui social (Instagram prima di tutto, poi TikTok, Pinterest, YouTube) in Italia. Trova: quali formati e temi stanno funzionando, trend e hashtag attuali, e 8-10 profili Instagram reali e pubblici (studi, designer, creator del settore, italiani o internazionali con pubblico ampio) che vale la pena osservare.
-Regole: usa SOLO ciò che trovi nelle fonti; se non sei sicuro che un account esista o sia attivo non includerlo; non inventare numeri di follower o statistiche; dentro i testi del JSON non usare mai virgolette doppie (usa apostrofi) e niente a capo; ogni trend e ogni profilo devono avere l'URL della fonte. Scrivi in italiano.
+Regole: usa SOLO ciò che trovi nelle fonti; se non sei sicuro che un account esista o sia attivo non includerlo; non inventare numeri di follower o statistiche; non inserire tag HTML o di citazione nei testi; dentro i testi del JSON non usare mai virgolette doppie (usa apostrofi) e niente a capo; ogni trend e ogni profilo devono avere l'URL della fonte. Scrivi in italiano.
 Rispondi SOLO con JSON valido: {"sintesi":"4-6 righe","formati":[{"nome":"","perche":""}],"trend":[{"titolo":"","dettaglio":"","fonte":"url"}],"hashtag":["#..."],"idee":[{"titolo":"","piattaforma":"IG|TT|PN|YT","formato":"","perche":""}],"profili":[{"handle":"senza @","perche":"","fonte":"url"}]}`;
     let messages = [{ role: "user", content: prompt }], text = "";
     for (let i = 0; i < 4; i++) {
@@ -39,6 +39,7 @@ Rispondi SOLO con JSON valido: {"sintesi":"4-6 righe","formati":[{"nome":"","per
       await logUso("analisi-riparazione", MODEL, j2.usage);
       dati = estrai((j2.content || []).map((b) => b.text || "").join(""));
     }
+    dati = pulisci(dati);
     await set("pronta", dati, null);
     for (const p of dati.profili || []) if (p.handle) await rpc("pulse_fn_seguiti_add", { p_org: ORG, p_profilo: profilo, p_handle: p.handle, p_perche: p.perche || null, p_fonte: p.fonte || null });
   } catch (e) { await set("errore", null, String(e.message).slice(0, 300)); }

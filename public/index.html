@@ -315,7 +315,7 @@ var MESI=['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic
 var d0=new Date();d0.setHours(0,0,0,0);
 function addD(n){var d=new Date(d0);d.setDate(d.getDate()+n);return d}
 function fd(d){return GG[d.getDay()]+' '+d.getDate()+' '+MESI[d.getMonth()]}
-function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function esc(s){return String(s).replace(/<\/?cite[^>]*>/gi,'').replace(/ {2,}/g,' ').replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
 function $(id){return document.getElementById(id)}
 function sleep(ms){return new Promise(function(r){setTimeout(r,ms*SPEED)})}
 function toast(m){var t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.k);toast.k=setTimeout(function(){t.classList.remove('on')},2300)}

@@ -40,3 +40,11 @@ export async function logUso(funzione, modello, usage) {
     await rpc("pulse_fn_consumo", { p_org: ORG, p_funzione: funzione, p_modello: modello, p_in: i, p_out: o, p_ricerche: r, p_costo: costo });
   } catch {}
 }
+
+// Toglie i tag di citazione che il modello può inserire nei testi.
+export function pulisci(v) {
+  if (typeof v === "string") return v.replace(/<\/?cite[^>]*>/gi, "").replace(/ {2,}/g, " ").trim();
+  if (Array.isArray(v)) return v.map(pulisci);
+  if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, pulisci(x)]));
+  return v;
+}
