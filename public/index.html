@@ -761,10 +761,35 @@ async function creaGrafica(v){
     R.mediaUrl=null;R.mediaUrls=null;caricaCosto();
   }catch(e){toast('Grafica non riuscita: '+e.message)}
   R.gfxBusy=false;renderCrea()}
-async function ridisegna(){var R=W.result;if(!R||!R.gfx)return;
+async function ridisegna(){var R=W.result;if(!R||!R.gfx||R.gfx.ai)return;
   if(R.gfx.urls){var sl=R.gfx.spec.slides.slice(0,8),u=[];for(var i=0;i<sl.length;i++)u.push(await drawGrafica(Object.assign({allineamento:R.gfx.spec.allineamento},sl[i],{foto:i===0&&!!R.photoImg}),giOf(cur),i===0?R.photoImg:null,R.f,{i:i+1,n:sl.length}));R.gfx.urls=u;R.gfx.url=u[0]}
   else R.gfx.url=await drawGrafica(R.gfx.spec,giOf(cur),R.photoImg,R.f);
   R.mediaUrl=null;R.mediaUrls=null;renderCrea()}
+async function falCall(body){var r=await fetch('/.netlify/functions/fal',{method:'POST',headers:{'content-type':'application/json',Authorization:'Bearer '+AUTH.access},body:JSON.stringify(body)});var j=await r.json().catch(function(){return{}});if(!r.ok)throw new Error(j.error||('errore '+r.status));return j}
+async function falAspetta(st,tipo,max){for(var i=0;i<max;i++){await new Promise(function(r){setTimeout(r,4000)});var x=await falCall({azione:'stato',status_url:st.status_url,response_url:st.response_url,tipo:tipo});if(x.stato==='pronto')return x;if(x.stato==='errore')throw new Error(x.error||'generazione non riuscita')}throw new Error('tempo scaduto, riprova')}
+async function aiImmagine(){var R=W.result;if(!R||R.aiBusy)return;var inp=document.getElementById('gx-rich');var rich=inp?inp.value:R.rich||'';R.rich=rich;R.aiBusy='Sto creando l\'immagine… (circa 20 secondi)';renderCrea();
+  try{var st=await falCall({azione:'immagine',brand:brandOf(cur),identita:Object.assign({},ST[cur].identita,giOf(cur)),tema:R.t,richiesta:rich,formato:R.f,piattaforma:PF[R.p]});
+    var x=await falAspetta(st,'immagine',30);
+    var im=new Image();await new Promise(function(ok,ko){im.onload=ok;im.onerror=function(){ko(new Error('immagine non leggibile'))};im.src=x.data});
+    R.aiImg=im;R.photoImg=im;R.video=null;R.mediaUrl=null;R.mediaUrls=null;R.gfx={spec:{nota:'Immagine AI: '+st.prompt},url:x.data,ai:true};caricaCosto()}
+  catch(e){toast('Immagine non riuscita: '+e.message)}
+  R.aiBusy=null;renderCrea()}
+async function aiVideo(d){var R=W.result;if(!R||R.aiBusy||!R.gfx)return;var inp=document.getElementById('gx-rich');var rich=inp?inp.value:R.rich||'';R.rich=rich;R.aiBusy='Sto creando il video… (1-3 minuti, puoi restare qui)';renderCrea();
+  try{var u=await uploadMedia(b64Blob(R.gfx.url.split(',')[1],'image/jpeg'),cur+'/base-'+Date.now()+'.jpg');
+    var st=await falCall({azione:'video',brand:brandOf(cur),tema:R.t,richiesta:rich,image_url:u,durata:d});
+    var x=await falAspetta(st,'video',60);R.video=x.url;R.mediaUrl=x.url;R.mediaUrls=null;caricaCosto()}
+  catch(e){toast('Video non riuscito: '+e.message)}
+  R.aiBusy=null;renderCrea()}
+function aiBlock(R){
+  var h='<h3>Immagine e video AI</h3>';
+  if(R.aiBusy)return h+'<div class="m">⏳ '+esc(R.aiBusy)+'</div>';
+  var reel=/reel|video|stori/i.test(R.f);
+  h+='<input id="gx-rich" value="'+esc(R.rich||'')+'" placeholder="Cosa vuoi vedere? (facoltativo)" style="width:100%;margin-bottom:8px">'+
+    '<div style="display:flex;flex-wrap:wrap;gap:8px"><button class="btn sm" data-gx="ai">'+((R.gfx&&R.gfx.ai)?'Altra immagine AI':'Genera immagine AI')+'</button>'+
+    (reel&&R.gfx?'<button class="btn sm" data-gx="vid5">Anima in video 5s</button><button class="btn sm ghost" data-gx="vid10">10s</button>':'')+'</div>'+
+    '<div class="m" style="margin-top:6px">Immagine ≈ 4 cent, video ≈ 35 cent (5s). L\'immagine non contiene testo: per scritte usa la grafica.'+(reel&&!R.gfx?' Per un reel prima crea l\'immagine o la grafica, poi la animi.':'')+'</div>';
+  if(R.video)h+='<video src="'+R.video+'" controls playsinline loop style="width:100%;max-width:340px;border-radius:12px;margin-top:8px"></video><div class="m">✓ Video pronto per la pubblicazione.</div>';
+  return h}
 function gfxBlock(R){
   var g=giOf(cur),h='<h3>Grafica</h3>';
   if(!g.def)h+='<div class="m" style="margin-bottom:8px">L\'identità grafica di '+esc(PR[cur].name)+' non è definita: userò font e colori di base. Puoi definirla in Profilo → Identità grafica.</div>';
@@ -777,7 +802,8 @@ function gfxBlock(R){
   return h}
 document.addEventListener('click',function(e){var a=e.target&&e.target.dataset&&e.target.dataset.gx;if(!a)return;var R=W.result;if(!R)return;
   if(a==='nuova'){R.gv=(R.gfx?(R.gv||0)+1:0);creaGrafica(R.gv)}
-  if(a==='nofoto'){R.photoImg=null;ridisegna()}});
+  if(a==='nofoto'){R.photoImg=null;ridisegna()}
+  if(a==='ai')aiImmagine();if(a==='vid5')aiVideo(5);if(a==='vid10')aiVideo(10)});
 document.addEventListener('change',function(e){if(!e.target||e.target.id!=='gx-photo')return;var f=e.target.files[0];if(!f)return;
   var u=URL.createObjectURL(f),im=new Image();im.onload=function(){W.result.photoImg=im;W.result.gfx.spec.foto=true;ridisegna()};im.onerror=function(){toast('Foto non leggibile')};im.src=u});
 async function uploadGfx(){var R=W.result;if(!R||!R.gfx||R.mediaUrl)return;
@@ -800,7 +826,7 @@ function renderCrea(){
       '<h3 style="margin-top:14px">Hook · primi 2 secondi</h3><div class="t" style="font-size:20px">'+esc(R.c.hook)+'</div>'+
       (sc?'<h3>Script scena per scena</h3>'+R.c.scene.map(function(s,i){return '<div class="scn"><span>'+sc+' '+(i+1)+'</span><div>'+esc(s)+'</div></div>'}).join(''):'')+
       '<h3>Caption</h3><div class="t" style="font-weight:400">'+esc(R.cap)+'</div><h3>Hashtag</h3><div class="t" style="font-weight:400;color:var(--vio)">'+esc(R.c.tags)+'</div>'+
-      gfxBlock(R)+
+      gfxBlock(R)+aiBlock(R)+
       (W.when?'<div class="when"><div><div class="m" style="margin:0">'+(W.confirmed?'Programmato per':'Consigliato')+'</div><div class="big">'+fd(W.when.d)+' · '+W.when.h+'</div></div></div>':'')+'</div>';
   }
   b.innerHTML='<div class="stage">'+phone+'<div>'+det+'</div></div>';
