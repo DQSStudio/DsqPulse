@@ -843,6 +843,7 @@ function libHtml(){var L=LIB.filter(function(l){return l.profilo===cur});if(!L.l
       '<button class="btn sm" data-lib="'+l.id+'">Apri</button><button class="btn sm ghost" data-libdel="'+l.id+'">✕</button></div>'}).join('')}
 document.addEventListener('click',function(e){var t=e.target;if(t&&t.id==='gx-eimg'&&W.result){var rc=t.getBoundingClientRect(),R=W.result;R.punti=R.punti||[];if(R.punti.length<5){R.punti.push({x:Math.round((e.clientX-rc.left)/rc.width*1000)/10,y:Math.round((e.clientY-rc.top)/rc.height*1000)/10,t:''});renderCrea()}return}
   if(t&&t.dataset&&t.dataset.ptdel!=null&&t.dataset.ptdel!==''&&W.result){W.result.punti.splice(+t.dataset.ptdel,1);renderCrea();return}
+  if(t&&t.dataset&&t.dataset.prog!=null&&t.dataset.prog!==''&&W.progOpts){var o=W.progOpts[+t.dataset.prog];if(o&&!t.disabled){t.disabled=true;confirmWhen(o).then(function(){toast(o.now?'In pubblicazione entro 15 minuti':'Programmato');renderCrea()})}return}
   if(!t||!t.dataset)return;if(t.dataset.gx==='mod'){aiModifica();return}if(t.dataset.lib)apriLavoro(t.dataset.lib);if(t.dataset.libdel)eliminaLavoro(t.dataset.libdel);if(t.dataset.gx==='chiudi'){W.result=null;renderCrea()}});
 async function falCall(body){var r=await fetch('/.netlify/functions/fal',{method:'POST',headers:{'content-type':'application/json',Authorization:'Bearer '+AUTH.access},body:JSON.stringify(body)});var j=await r.json().catch(function(){return{}});if(!r.ok)throw new Error(j.error||('errore '+r.status));return j}
 async function falAspetta(st,tipo,max){for(var i=0;i<max;i++){await new Promise(function(r){setTimeout(r,4000)});var x=await falCall({azione:'stato',status_url:st.status_url,response_url:st.response_url,tipo:tipo});if(x.stato==='pronto')return x;if(x.stato==='errore')throw new Error(x.error||'generazione non riuscita')}throw new Error('tempo scaduto, riprova')}
@@ -939,6 +940,13 @@ function phoneHtml(R){
       '<div class="mv" style="aspect-ratio:4/5;width:100%">'+inner+'</div>'+(R.gfx&&R.gfx.urls?'<div class="dots">'+R.gfx.urls.map(function(){return '<i></i>'}).join('')+'</div>':'')+
       '<div class="ic"><span>♡</span><span>💬</span><span>➤</span></div><div class="cpn"><b>'+esc(nm)+'</b> '+cap+'</div><div class="home"></div></div>'}
   return '<div class="phonewrap"><div class="iph">'+html+'</div></div>'}
+function progBlock(){
+  if(W.confirmed&&W.when)return '<div class="when"><div><div class="m" style="margin:0">Programmato per</div><div class="big">'+fd(W.when.d)+' · '+W.when.h+'</div></div></div>';
+  if(!W.p)return '';
+  var w=pickWhen(),n=new Date(Date.now()+3*60000),hh=('0'+n.getHours()).slice(-2)+':'+('0'+n.getMinutes()).slice(-2);
+  W.progOpts=[w.main].concat(w.alt).concat([{d:addD(0),h:hh,now:true}]);
+  return '<div class="when" style="display:block"><div class="m" style="margin:0">Pubblica su '+esc(PF[W.p])+' · consigliato <b>'+fd(w.main.d)+' alle '+w.main.h+'</b></div><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">'+
+    W.progOpts.map(function(o,i){return '<button class="btn sm'+(i===0?'':' ghost')+'" data-prog="'+i+'">'+(o.now?'Pubblica subito (entro 15 min)':(i===0?'Programma · ':'')+fd(o.d)+' '+o.h)+'</button>'}).join('')+'</div><div class="m" style="margin-top:8px">Usa questa immagine, la caption e gli hashtag qui sopra.</div></div>'}
 function renderCrea(){
   var R=W.result,b=$('crea-body');
   if(!R){
@@ -954,7 +962,7 @@ function renderCrea(){
       (sc?'<h3>Script scena per scena</h3>'+R.c.scene.map(function(s,i){return '<div class="scn"><span>'+sc+' '+(i+1)+'</span><div>'+esc(s)+'</div></div>'}).join(''):'')+
       '<h3>Caption</h3><div class="t" style="font-weight:400">'+esc(R.cap)+'</div><h3>Hashtag</h3><div class="t" style="font-weight:400;color:var(--vio)">'+esc(R.c.tags)+'</div>'+
       gfxBlock(R)+aiBlock(R)+'<div class="m" style="margin-top:10px">✓ Salvato automaticamente tra i lavori salvati.</div><button class="btn sm ghost" data-gx="chiudi" style="margin-top:6px">Chiudi e vedi i salvati</button>'+
-      (W.when?'<div class="when"><div><div class="m" style="margin:0">'+(W.confirmed?'Programmato per':'Consigliato')+'</div><div class="big">'+fd(W.when.d)+' · '+W.when.h+'</div></div></div>':'')+'</div>';
+      progBlock()+'</div>';
   }
   b.innerHTML='<div class="stage">'+phone+'<div>'+det+'</div></div>';
 }
