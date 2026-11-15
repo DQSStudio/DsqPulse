@@ -308,6 +308,7 @@ svg text{font-family:'Outfit',sans-serif}
     </div>
     <div id="kn-q-wrap"><h3>2 · Domande dell'agente</h3><div class="card" id="qlist"></div></div>
     <div id="kn-sum-wrap"><h3>3 · Cosa ha imparato l'agente</h3><div class="card"><div id="kn-sum"></div></div></div>
+    <div id="gi-wrap"><h3>4 · Identità grafica</h3><div class="card" id="gi-card"></div></div>
   </section>
 </main>
 </div>
@@ -428,7 +429,7 @@ Object.keys(PR).forEach(function(k){
   ST[k]={
     posts:PR[k].posts.map(function(x){n++;return {id:k+n,d:addD(x.d),h:x.h,p:x.p,f:x.f,t:x.t,st:x.st}}),
     prop:PR[k].prop.slice(),appr:[],
-    files:[],gen:false,ans:{},editing:{},newq:PR[k].newq.slice(),learned:[],docs:[],conoscenza:'',dq:[],kedit:false
+    files:[],gen:false,ans:{},editing:{},newq:PR[k].newq.slice(),learned:[],docs:[],conoscenza:'',dq:[],kedit:false,identita:{}
   };
 });
 
@@ -470,7 +471,7 @@ async function loadKn(){
     Object.keys(PR).forEach(function(k){ST[k].docs=[];ST[k].dq=[]});
     (await sbq('pulse_documenti?select=*&order=creato_il.asc')).forEach(function(r){if(ST[r.profilo])ST[r.profilo].docs.push(r)});
     (await sbq('pulse_domande?select=*&stato=eq.aperta&order=creato_il.asc')).forEach(function(r){if(ST[r.profilo])ST[r.profilo].dq.push(r)});
-    (await sbq('pulse_profili?select=slug,conoscenza')).forEach(function(r){if(ST[r.slug])ST[r.slug].conoscenza=r.conoscenza||''});
+    (await sbq('pulse_profili?select=slug,conoscenza,identita')).forEach(function(r){if(ST[r.slug]){ST[r.slug].conoscenza=r.conoscenza||'';ST[r.slug].identita=r.identita||{}}});
   }catch(e){}
 }
 async function seedKn(){
@@ -686,6 +687,77 @@ function renderCal(L){
 (function(){var st=document.createElement('style');st.textContent='@keyframes draw{to{stroke-dashoffset:0}}';document.head.appendChild(st)})();
 
 /* ---------- anteprima (Crea) ---------- */
+/* ---------- grafica dei contenuti ---------- */
+function gfxH(f){return (f==='Carousel'||f==='Post')?1350:(f==='Pin'?1620:1920)}
+function loadFonts(list){
+  var fam=list.filter(function(v,i,a){return v&&a.indexOf(v)===i});
+  var id='gf-'+fam.join('-').replace(/\s/g,'');
+  var p=new Promise(function(res){
+    if(document.getElementById(id))return res();
+    var l=document.createElement('link');l.id=id;l.rel='stylesheet';
+    l.href='https://fonts.googleapis.com/css2?'+fam.map(function(f){return 'family='+encodeURIComponent(f).replace(/%20/g,'+')+(SINGLE.indexOf(f)>=0?'':':wght@300;400;500;600;700')}).join('&')+'&display=swap';
+    l.onload=res;l.onerror=res;document.head.appendChild(l)});
+  return p.then(function(){return Promise.all(fam.map(function(f){return Promise.all(['300','400','500','600','700'].map(function(w){return document.fonts.load(w+' 40px "'+f+'"')}))}))}).catch(function(){})}
+function wrapLines(x,t,maxW){var w=String(t||'').split(/\s+/),l=[],c='';w.forEach(function(a){var n=c?c+' '+a:a;if(x.measureText(n).width>maxW&&c){l.push(c);c=a}else c=n});if(c)l.push(c);return l}
+function fitText(x,t,font,wt,maxW,maxLines,start,min){var sz=start,L;for(;sz>=min;sz-=4){x.font=wt+' '+sz+'px "'+font+'"';L=wrapLines(x,t,maxW);if(L.length<=maxLines)break}return {sz:sz,lines:L}}
+function spaced(x,t,px,py,sp,align,maxW){
+  t=String(t||'').toUpperCase();var w=0,i;for(i=0;i<t.length;i++)w+=x.measureText(t[i]).width+sp;w-=sp;
+  var sx=align==='right'?px-w:align==='center'?px-w/2:px;x.textAlign='left';
+  for(i=0;i<t.length;i++){x.fillText(t[i],sx,py);sx+=x.measureText(t[i]).width+sp}}
+async function drawGrafica(spec,g,photo,f){
+  var Wd=1080,Hd=gfxH(f),C=g.colori;
+  await loadFonts([g.font_titoli,g.font_testo]);
+  var c=document.createElement('canvas');c.width=Wd;c.height=Hd;var x=c.getContext('2d');
+  x.fillStyle=C.sfondo;x.fillRect(0,0,Wd,Hd);
+  var tc=C.testo,usaFoto=photo&&spec.foto!==false;
+  if(usaFoto){var sc=Math.max(Wd/photo.width,Hd/photo.height),w=photo.width*sc,h=photo.height*sc;x.drawImage(photo,(Wd-w)/2,(Hd-h)/2,w,h);
+    var gr=x.createLinearGradient(0,0,0,Hd);gr.addColorStop(0,'rgba(0,0,0,.55)');gr.addColorStop(.5,'rgba(0,0,0,.35)');gr.addColorStop(1,'rgba(0,0,0,.65)');x.fillStyle=gr;x.fillRect(0,0,Wd,Hd);tc='#ffffff'}
+  var M=96,al=spec.allineamento==='centro'?'center':'left',ax=al==='center'?Wd/2:M,maxW=Wd-2*M;
+  x.textBaseline='alphabetic';x.fillStyle=tc;x.textAlign='left';x.font='500 36px "'+g.font_testo+'"';
+  if(g.wordmark)x.fillText(g.wordmark,M,M+34);
+  x.fillStyle=usaFoto?'#ffffff':C.primario;x.globalAlpha=.9;x.fillRect(M,M+70,maxW,2);x.globalAlpha=1;
+  var y=Hd*0.30;x.textAlign=al;
+  if(spec.template==='citazione'){x.fillStyle=C.primario;x.font='700 260px "'+g.font_titoli+'"';x.fillText('\u201C',ax,y+60);y+=150}
+  else{x.fillStyle=usaFoto?'#ffffff':C.primario;x.fillRect(al==='center'?Wd/2-60:M,y-40,120,6)}
+  var t=fitText(x,spec.titolo,g.font_titoli,spec.template==='elenco'?'700':'700',maxW,spec.template==='elenco'?3:5,spec.template==='elenco'?84:112,48);
+  x.fillStyle=tc;x.font='700 '+t.sz+'px "'+g.font_titoli+'"';
+  t.lines.forEach(function(l,i){x.fillText(l,ax,y+(i+1)*t.sz*1.12)});y+=t.lines.length*t.sz*1.12+40;
+  if(spec.sottotitolo){x.globalAlpha=.85;var s2=fitText(x,spec.sottotitolo,g.font_testo,'400',maxW,3,44,30);x.font='400 '+s2.sz+'px "'+g.font_testo+'"';s2.lines.forEach(function(l,i){x.fillText(l,ax,y+(i+1)*s2.sz*1.35)});y+=s2.lines.length*s2.sz*1.35+30;x.globalAlpha=1}
+  if(spec.template==='elenco'&&(spec.punti||[]).length){
+    y+=30;(spec.punti||[]).slice(0,4).forEach(function(p,i){
+      x.textAlign='left';x.fillStyle=usaFoto?'#ffffff':C.primario;x.globalAlpha=1;x.font='600 40px "'+g.font_titoli+'"';x.fillText(('0'+(i+1)).slice(-2),M,y+44);
+      x.fillStyle=tc;x.font='400 42px "'+g.font_testo+'"';var L=wrapLines(x,p,maxW-120);L.slice(0,2).forEach(function(l,j){x.fillText(l,M+110,y+44+j*54)});
+      var hh=Math.max(1,L.slice(0,2).length)*54+36;y+=hh;x.globalAlpha=.35;x.fillRect(M,y,maxW,2);x.globalAlpha=1;y+=22})}
+  if(spec.cta){x.textAlign='left';x.fillStyle=usaFoto?'#ffffff':C.secondario;x.font='600 34px "'+g.font_testo+'"';spaced(x,spec.cta,al==='center'?Wd/2:M,Hd-M-110,6,al==='center'?'center':'left')}
+  x.globalAlpha=.9;x.fillStyle=usaFoto?'#ffffff':C.primario;x.fillRect(M,Hd-M-60,maxW,2);x.globalAlpha=1;
+  x.fillStyle=tc;x.font='500 28px "'+g.font_testo+'"';if(g.sottotitolo)spaced(x,g.sottotitolo,M,Hd-M-8,8,'left');
+  return c.toDataURL('image/jpeg',0.92)}
+async function creaGrafica(v){
+  var R=W.result;if(!R||R.loading)return;R.gfxBusy=true;renderCrea();
+  try{
+    var r=await fetch('/.netlify/functions/grafica',{method:'POST',headers:{'content-type':'application/json',Authorization:'Bearer '+AUTH.access},body:JSON.stringify({brand:brandOf(cur),identita:Object.assign({},ST[cur].identita,giOf(cur)),tema:R.t,hook:R.c.hook,caption:R.cap,formato:R.f,piattaforma:PF[R.p],variante:v||0})});
+    var spec=await r.json();if(!r.ok)throw new Error(spec.error||'errore');
+    var url=await drawGrafica(spec,giOf(cur),R.photoImg,R.f);R.gfx={spec:spec,url:url};R.mediaUrl=null;caricaCosto();
+  }catch(e){toast('Grafica non riuscita: '+e.message)}
+  R.gfxBusy=false;renderCrea()}
+async function ridisegna(){var R=W.result;if(!R||!R.gfx)return;R.gfx.url=await drawGrafica(R.gfx.spec,giOf(cur),R.photoImg,R.f);R.mediaUrl=null;renderCrea()}
+function gfxBlock(R){
+  var g=giOf(cur),h='<h3>Grafica</h3>';
+  if(!g.def)h+='<div class="m" style="margin-bottom:8px">L\'identità grafica di '+esc(PR[cur].name)+' non è definita: userò font e colori di base. Puoi definirla in Profilo → Identità grafica.</div>';
+  if(R.gfxBusy)return h+'<div class="m">⏳ Sto disegnando la grafica…</div>';
+  if(R.gfx){
+    h+='<img src="'+R.gfx.url+'" style="width:100%;max-width:340px;border-radius:12px;border:1px solid #ddd;display:block">'+(R.gfx.spec.nota?'<div class="m" style="margin-top:6px">'+esc(R.gfx.spec.nota)+'</div>':'')+
+      '<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px"><button class="btn sm" data-gx="nuova">Altra composizione</button><label class="btn sm ghost" style="cursor:pointer">'+(R.photoImg?'Cambia foto':'Aggiungi foto di sfondo')+'<input type="file" id="gx-photo" accept="image/*" style="display:none"></label>'+(R.photoImg?'<button class="btn sm ghost" data-gx="nofoto">Togli foto</button>':'')+'<a class="btn sm ghost" href="'+R.gfx.url+'" download="grafica.jpg">Scarica</a></div>'+
+      '<div class="m" style="margin-top:8px">'+(R.mediaUrl?'✓ Pronta per la pubblicazione.':'Quando programmi il contenuto, questa grafica viene usata per la pubblicazione.')+'</div>';
+  }else h+='<div class="m" style="margin-bottom:8px">L\'agente disegna una grafica con font, colori e stile del profilo.</div><button class="btn sm" data-gx="nuova">Crea la grafica</button>';
+  return h}
+document.addEventListener('click',function(e){var a=e.target&&e.target.dataset&&e.target.dataset.gx;if(!a)return;var R=W.result;if(!R)return;
+  if(a==='nuova'){R.gv=(R.gfx?(R.gv||0)+1:0);creaGrafica(R.gv)}
+  if(a==='nofoto'){R.photoImg=null;ridisegna()}});
+document.addEventListener('change',function(e){if(!e.target||e.target.id!=='gx-photo')return;var f=e.target.files[0];if(!f)return;
+  var u=URL.createObjectURL(f),im=new Image();im.onload=function(){W.result.photoImg=im;W.result.gfx.spec.foto=true;ridisegna()};im.onerror=function(){toast('Foto non leggibile')};im.src=u});
+async function uploadGfx(){var R=W.result;if(!R||!R.gfx||R.mediaUrl)return;
+  R.mediaUrl=await uploadMedia(b64Blob(R.gfx.url.split(',')[1],'image/jpeg'),cur+'/post-'+Date.now()+'.jpg')}
 function renderCrea(){
   var R=W.result,b=$('crea-body');
   if(!R){
@@ -695,7 +767,7 @@ function renderCrea(){
   var ratio=(R.f==='Carousel'||R.f==='Post')?'4/5':(R.f==='Pin'?'2/3':'9/16');
   var shim=R.loading?'<div class="shim"></div>':'';
   var phone='<div class="phonewrap"><div class="phone"><div class="screen '+R.p+'" style="aspect-ratio:'+ratio+'">'+shim+'<div class="tag">'+esc(PF[R.p])+' · '+esc(R.f)+'</div><div class="side"><i></i><i></i><i></i></div>'+
-    (R.loading?'':'<div class="hk">'+esc(R.c.hook)+'</div><div class="cp">'+esc(R.cap)+'</div>')+'</div></div></div>';
+    (R.loading?'':(R.gfx?'<img src="'+R.gfx.url+'" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:inherit">':'<div class="hk">'+esc(R.c.hook)+'</div><div class="cp">'+esc(R.cap)+'</div>'))+'</div></div></div>';
   var det='';
   if(!R.loading){
     var sc=(R.f==='Carousel')?'Slide':(R.f==='Post'||R.f==='Pin'||R.f==='Idea Pin')?'':'Scena';
@@ -703,7 +775,7 @@ function renderCrea(){
       '<h3 style="margin-top:14px">Hook · primi 2 secondi</h3><div class="t" style="font-size:20px">'+esc(R.c.hook)+'</div>'+
       (sc?'<h3>Script scena per scena</h3>'+R.c.scene.map(function(s,i){return '<div class="scn"><span>'+sc+' '+(i+1)+'</span><div>'+esc(s)+'</div></div>'}).join(''):'')+
       '<h3>Caption</h3><div class="t" style="font-weight:400">'+esc(R.cap)+'</div><h3>Hashtag</h3><div class="t" style="font-weight:400;color:var(--vio)">'+esc(R.c.tags)+'</div>'+
-      '<h3>Visual</h3><div class="m">Qui l\'agente genera immagini e clip a partire dai tuoi render e dalle foto di cantiere. Per ora l\'agente genera solo i testi: immagini e video arrivano nella prossima fase.</div>'+
+      gfxBlock(R)+
       (W.when?'<div class="when"><div><div class="m" style="margin:0">'+(W.confirmed?'Programmato per':'Consigliato')+'</div><div class="big">'+fd(W.when.d)+' · '+W.when.h+'</div></div></div>':'')+'</div>';
   }
   b.innerHTML='<div class="stage">'+phone+'<div>'+det+'</div></div>';
@@ -801,7 +873,7 @@ async function recommend(){
 async function confirmWhen(w){
   W.when=w;W.confirmed=true;
   var np={id:cur+(nid++),d:w.d,h:w.h,p:W.p,f:W.f,t:W.result.t,st:'programmato'};ST[cur].posts.push(np);
-  try{var rc=W.result.c||{};var rr=await sbq('pulse_contenuti',{method:'POST',body:{org_id:ORG,profilo:cur,piattaforma:W.p,formato:W.f,tema:W.result.t,hook:rc.hook||null,scene:rc.scene||[],caption:W.result.cap||rc.cap||null,tags:rc.tags||null,stato:'programmato',quando:toDT(w.d,w.h)}});np.id=rr[0].id}catch(e){toast('Salvataggio non riuscito: '+e.message)}
+  try{try{await uploadGfx()}catch(e){toast('Grafica non caricata: '+e.message)}var rc=W.result.c||{};var rr=await sbq('pulse_contenuti',{method:'POST',body:{org_id:ORG,profilo:cur,media_url:W.result.mediaUrl||null,piattaforma:W.p,formato:W.f,tema:W.result.t,hook:rc.hook||null,scene:rc.scene||[],caption:W.result.cap||rc.cap||null,tags:rc.tags||null,stato:'programmato',quando:toDT(w.d,w.h)}});np.id=rr[0].id}catch(e){toast('Salvataggio non riuscito: '+e.message)}
   renderAll();confetti(130);
   await say('Fatto! <b>'+esc(W.result.t)+'</b> è programmato per '+fd(w.d)+' alle '+w.h+' su '+PF[W.p]+'. Lo trovi nel calendario.');
   after();
@@ -884,7 +956,53 @@ function renderKn(){
     $('kn-sum').innerHTML='<div class="agent" style="white-space:pre-wrap"><b>Agente · cosa ho capito</b>'+esc(S.conoscenza||'Ancora niente: carica un documento o rispondi alle domande.')+'</div><div style="margin-top:10px"><button class="btn sm ghost" id="kn-edit">Modifica</button></div>';
     $('kn-edit').onclick=function(){S.kedit=true;renderKn()};
   }
+  renderGi();
 }
+
+var FONTS=['Jost','Montserrat','Poppins','Raleway','DM Sans','Inter','Playfair Display','Cormorant Garamond','Lora','Bebas Neue','Oswald','Archivo Black'],SINGLE=['Bebas Neue','Archivo Black'];
+function giOf(k){var g=ST[k].identita||{};return {def:!!g.font_titoli,font_titoli:g.font_titoli||'Jost',font_testo:g.font_testo||'Jost',colori:Object.assign({sfondo:'#F4EFE6',testo:'#111111',primario:'#C8B79A',secondario:'#6E2635'},g.colori||{}),stile:g.stile||'',wordmark:g.wordmark||'',sottotitolo:g.sottotitolo||'',riferimenti:g.riferimenti||[]}}
+function fontOpts(v){return FONTS.map(function(f){return '<option'+(f===v?' selected':'')+'>'+f+'</option>'}).join('')}
+function b64Blob(b64,type){var bin=atob(b64),a=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return new Blob([a],{type:type})}
+async function uploadMedia(blob,name){
+  var path=ORG+'/'+name;
+  var r=await fetch(SB+'/storage/v1/object/pulse-media/'+path,{method:'POST',headers:{apikey:SBK,Authorization:'Bearer '+AUTH.access,'content-type':blob.type||'image/jpeg','x-upsert':'true'},body:blob});
+  if(!r.ok){var t='';try{t=(await r.json()).message}catch(e){}throw new Error(t||'caricamento non riuscito')}
+  return SB+'/storage/v1/object/public/pulse-media/'+path}
+async function saveGi(k,patch){
+  var n=Object.assign({},ST[k].identita||{},patch);
+  await sbq('pulse_profili?slug=eq.'+k,{method:'PATCH',body:{identita:n,aggiornato_il:new Date().toISOString()}});
+  ST[k].identita=n}
+function renderGi(){
+  var k=cur,S=ST[k],g=giOf(k),I=S.identita||{},C=g.colori,P=I.proposta;
+  var col=function(id,lab,v){return '<label class="m" style="display:flex;flex-direction:column;align-items:center;gap:4px;margin:0">'+lab+'<input type="color" id="'+id+'" value="'+v+'" style="width:54px;height:40px;padding:0;border:1px solid #ddd;border-radius:10px"></label>'};
+  var st=I.proposta_stato==='in_corso'?'<div class="m">⏳ L\'agente sta guardando i riferimenti…</div>':I.proposta_stato==='errore'?'<div class="m">⚠️ Proposta non riuscita: '+esc(I.proposta_errore||'')+'</div>':'';
+  var prop=(P&&I.proposta_stato==='pronta')?'<div class="agent" style="margin-top:12px"><b>Agente · proposta</b>Font: '+esc(P.font_titoli)+' / '+esc(P.font_testo)+'<br>Colori: '+['sfondo','testo','primario','secondario'].map(function(c){return '<span style="display:inline-block;width:18px;height:18px;border-radius:5px;vertical-align:middle;border:1px solid #ccc;background:'+esc(P.colori[c])+'"></span> '+esc(c)}).join(' · ')+'<br><br>'+esc(P.stile)+(P.nota?'<br><br><i>'+esc(P.nota)+'</i>':'')+'<div style="margin-top:10px"><button class="btn sm" id="gi-use">Usa questa proposta</button></div></div>':'';
+  $('gi-card').innerHTML=(g.def?'':'<div class="m" style="margin:0 0 10px">Identità non ancora definita per '+esc(PR[k].name)+': carica una o più grafiche già realizzate (o ispirazioni) e chiedi all\'agente di proporla, oppure compilala a mano.</div>')+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label class="m" style="margin:0">Font titoli<select id="gi-ft" style="width:100%">'+fontOpts(g.font_titoli)+'</select></label><label class="m" style="margin:0">Font testo<select id="gi-fx" style="width:100%">'+fontOpts(g.font_testo)+'</select></label></div>'+
+    '<div style="display:flex;gap:14px;justify-content:space-between;margin:14px 0">'+col('gi-c1','Sfondo',C.sfondo)+col('gi-c2','Testo',C.testo)+col('gi-c3','Accento',C.primario)+col('gi-c4','Secondario',C.secondario)+'</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label class="m" style="margin:0">Wordmark<input id="gi-wm" value="'+esc(g.wordmark)+'" placeholder="es. desearq studio" style="width:100%"></label><label class="m" style="margin:0">Sottotitolo<input id="gi-sub" value="'+esc(g.sottotitolo)+'" placeholder="es. MILANO" style="width:100%"></label></div>'+
+    '<label class="m" style="display:block;margin-top:10px">Stile<textarea id="gi-st" rows="4" placeholder="Com\'è il tuo stile grafico: spazi, linee, composizione, cosa evitare">'+esc(g.stile)+'</textarea></label>'+
+    '<h3>Grafiche di riferimento</h3><div id="gi-refs" style="display:flex;flex-wrap:wrap;gap:8px">'+g.riferimenti.map(function(r,i){return '<div style="position:relative"><img src="'+esc(r.url)+'" style="width:84px;height:104px;object-fit:cover;border-radius:10px;border:1px solid #ddd"><button class="btn sm ghost" data-gr="'+i+'" style="position:absolute;top:2px;right:2px;padding:0 7px">✕</button></div>'}).join('')+'</div>'+
+    '<label class="filebtn" style="margin-top:10px"><input type="file" id="gi-up" accept="image/*" multiple>Aggiungi grafiche di riferimento<br><span class="m">post, copertine, screenshot di profili che ti piacciono</span></label>'+
+    '<label class="m" style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" id="gi-web"> Cerca ispirazione anche sul web</label>'+
+    '<div style="margin-top:10px"><button class="btn sm" id="gi-save">Salva identità</button> <button class="btn sm ghost" id="gi-ask">Fai proporre all\'agente</button></div>'+st+prop;
+  var read=function(){return {font_titoli:$('gi-ft').value,font_testo:$('gi-fx').value,colori:{sfondo:$('gi-c1').value,testo:$('gi-c2').value,primario:$('gi-c3').value,secondario:$('gi-c4').value},wordmark:$('gi-wm').value.trim(),sottotitolo:$('gi-sub').value.trim(),stile:$('gi-st').value.trim()}};
+  $('gi-save').onclick=async function(){try{await saveGi(k,read());renderGi();toast('Identità grafica salvata')}catch(e){toast('Non salvata: '+e.message)}};
+  $('gi-ask').onclick=async function(){
+    var rif=giOf(k).riferimenti.map(function(r){return r.url});
+    if(!rif.length&&!$('gi-web').checked){toast('Aggiungi almeno una grafica o spunta la ricerca sul web');return}
+    try{await saveGi(k,Object.assign(read(),{proposta_stato:'in_corso'}));renderGi();
+      await fetch('/.netlify/functions/identita-background',{method:'POST',headers:{'content-type':'application/json',Authorization:'Bearer '+AUTH.access},body:JSON.stringify({profilo:k,brand:brandOf(k),riferimenti:rif,web:$('gi-web').checked,attuale:read()})});
+      pollGi(0)}catch(e){toast('Non avviata: '+e.message)}};
+  if($('gi-use'))$('gi-use').onclick=async function(){try{await saveGi(k,{font_titoli:P.font_titoli,font_testo:P.font_testo,colori:P.colori,stile:P.stile,proposta_stato:'usata'});renderGi();toast('Identità aggiornata')}catch(e){toast('Errore: '+e.message)}};
+  document.querySelectorAll('#gi-refs [data-gr]').forEach(function(b){b.onclick=async function(){var r=giOf(k).riferimenti.slice();r.splice(+b.dataset.gr,1);try{await saveGi(k,{riferimenti:r});renderGi()}catch(e){toast('Errore: '+e.message)}}});
+  $('gi-up').onchange=async function(e){
+    var files=Array.prototype.slice.call(e.target.files);e.target.value='';
+    var r=giOf(k).riferimenti.slice();
+    for(var i=0;i<files.length;i++){try{toast('Carico '+files[i].name+'…');var im=await riduciImmagine(files[i]);var url=await uploadMedia(b64Blob(im.data,'image/jpeg'),k+'/rif-'+Date.now()+'-'+i+'.jpg');r.push({url:url,nome:files[i].name})}catch(err){toast(files[i].name+': '+err.message)}}
+    try{await saveGi(k,{riferimenti:r});renderGi()}catch(err){toast('Non salvate: '+err.message)}};
+}
+function pollGi(n){setTimeout(async function(){await loadKn();var ae=document.activeElement;if(!(ae&&ae.tagName==='TEXTAREA'))renderGi();if((ST[cur].identita||{}).proposta_stato==='in_corso'&&n<50)pollGi(n+1)},4000)}
 var PDFV='3.11.174';
 function loadPdfjs(){return new Promise(function(res,rej){
   if(window.pdfjsLib)return res();
