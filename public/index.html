@@ -763,6 +763,7 @@ function drawEd(x,spec,g,pos,Wd,Hd){
   if(!pos||pos.i<pos.n){var cx=Wd-M-52,cy=Hd-M-48;x.strokeStyle=ink;x.lineWidth=3;x.beginPath();x.arc(cx,cy,52,0,Math.PI*2);x.stroke();
     x.beginPath();x.moveTo(cx-24,cy);x.lineTo(cx+24,cy);x.moveTo(cx+10,cy-14);x.lineTo(cx+24,cy);x.lineTo(cx+10,cy+14);x.lineWidth=3;x.lineCap='round';x.lineJoin='round';x.stroke()}}
 async function drawGrafica(spec,g,photo,f,pos){
+  if(spec.layout||spec.peso_titoli)g=Object.assign({},g,{layout:/^editoriale/i.test(spec.layout||'')?'editoriale':(spec.layout?'classico':g.layout),peso_titoli:/^(300|400|500|700)$/.test(String(spec.peso_titoli))?String(spec.peso_titoli):g.peso_titoli});
   var Wd=1080,Hd=gfxH(f),C=g.colori;
   await loadFonts([g.font_titoli,g.font_testo]);
   var c=document.createElement('canvas');c.width=Wd;c.height=Hd;var x=c.getContext('2d');
@@ -779,10 +780,10 @@ async function drawGrafica(spec,g,photo,f,pos){
   var y=Hd*(spec.template==='elenco'?0.19:0.30);x.textAlign=al;
   if(spec.template==='citazione'){x.fillStyle=C.primario;x.font='700 260px "'+g.font_titoli+'"';x.fillText('\u201C',ax,y+60);y+=150}
   else{x.fillStyle=usaFoto?'#ffffff':C.primario;x.fillRect(al==='center'?Wd/2-60:M,y-40,120,6)}
-  var t=fitText(x,spec.titolo,g.font_titoli,spec.template==='elenco'?'700':'700',maxW,spec.template==='elenco'?3:5,spec.template==='elenco'?72:112,44);
+  var t=fitText(x,spec.titolo,g.font_titoli,spec.template==='elenco'?'700':'700',maxW,spec.template==='elenco'?3:4,spec.template==='elenco'?72:112,44);
   x.fillStyle=tc;x.font='700 '+t.sz+'px "'+g.font_titoli+'"';
   t.lines.forEach(function(l,i){x.fillText(l,ax,y+(i+1)*t.sz*1.12)});y+=t.lines.length*t.sz*1.12+40;
-  if(spec.sottotitolo){x.globalAlpha=.85;var s2=fitText(x,spec.sottotitolo,g.font_testo,'400',maxW,3,44,30);x.font='400 '+s2.sz+'px "'+g.font_testo+'"';s2.lines.forEach(function(l,i){x.fillText(l,ax,y+(i+1)*s2.sz*1.35)});y+=s2.lines.length*s2.sz*1.35+30;x.globalAlpha=1}
+  if(spec.sottotitolo&&(function(){var s0=fitText(x,spec.sottotitolo,g.font_testo,'400',maxW,3,44,30);return y+s0.lines.length*s0.sz*1.35<Hd-M-(spec.cta?170:120)})()){x.globalAlpha=.85;var s2=fitText(x,spec.sottotitolo,g.font_testo,'400',maxW,3,44,30);x.font='400 '+s2.sz+'px "'+g.font_testo+'"';s2.lines.forEach(function(l,i){x.fillText(l,ax,y+(i+1)*s2.sz*1.35)});y+=s2.lines.length*s2.sz*1.35+30;x.globalAlpha=1}
   if(spec.template==='elenco'&&(spec.punti||[]).length){
     y+=10;var lim=Hd-M-170;(spec.punti||[]).slice(0,4).forEach(function(p0,i){
       var p=String(p0).replace(/^\s*(\d{1,2}\s*[\.\)\-:]\s*|\d{1,2}\s+)/,'');
@@ -803,14 +804,14 @@ async function creaGrafica(v){
     var spec=await r.json();if(!r.ok)throw new Error(spec.error||'errore');
     if(/carosel|carousel/i.test(R.f)){
       var sl=(spec.slides||[]).slice(0,8);if(sl.length<2)throw new Error('carosello troppo corto');
-      var urls=[];for(var qi=0;qi<sl.length;qi++){urls.push(await drawGrafica(Object.assign({allineamento:spec.allineamento},sl[qi],{foto:qi===0&&!!R.photoImg}),giOf(cur),qi===0?R.photoImg:null,R.f,{i:qi+1,n:sl.length}))}
+      var urls=[];for(var qi=0;qi<sl.length;qi++){urls.push(await drawGrafica(Object.assign({allineamento:spec.allineamento,layout:spec.layout,peso_titoli:spec.peso_titoli},sl[qi],{foto:qi===0&&!!R.photoImg}),giOf(cur),qi===0?R.photoImg:null,R.f,{i:qi+1,n:sl.length}))}
       R.gfx={spec:spec,urls:urls,url:urls[0]}}
     else{var url=await drawGrafica(spec,giOf(cur),R.photoImg,R.f);R.gfx={spec:spec,url:url}}
     R.mediaUrl=null;R.mediaUrls=null;caricaCosto();
   }catch(e){toast('Grafica non riuscita: '+e.message)}
   R.gfxBusy=false;renderCrea();salvaLavoro()}
 async function ridisegna(){var R=W.result;if(!R||!R.gfx||R.gfx.ai)return;
-  if(R.gfx.urls){var sl=R.gfx.spec.slides.slice(0,8),u=[];for(var i=0;i<sl.length;i++)u.push(await drawGrafica(Object.assign({allineamento:R.gfx.spec.allineamento},sl[i],{foto:i===0&&!!R.photoImg}),giOf(cur),i===0?R.photoImg:null,R.f,{i:i+1,n:sl.length}));R.gfx.urls=u;R.gfx.url=u[0]}
+  if(R.gfx.urls){var sl=R.gfx.spec.slides.slice(0,8),u=[];for(var i=0;i<sl.length;i++)u.push(await drawGrafica(Object.assign({allineamento:R.gfx.spec.allineamento,layout:R.gfx.spec.layout,peso_titoli:R.gfx.spec.peso_titoli},sl[i],{foto:i===0&&!!R.photoImg}),giOf(cur),i===0?R.photoImg:null,R.f,{i:i+1,n:sl.length}));R.gfx.urls=u;R.gfx.url=u[0]}
   else R.gfx.url=await drawGrafica(R.gfx.spec,giOf(cur),R.photoImg,R.f);
   R.mediaUrl=null;R.mediaUrls=null;renderCrea();salvaLavoro()}
 var LIB=[];
