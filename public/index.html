@@ -930,6 +930,15 @@ document.addEventListener('click',function(e){
   if(e.target&&e.target.dataset&&e.target.dataset.ht){$('ht-in').value=e.target.dataset.ht;cercaHashtag(e.target.dataset.ht)}
 });
 
+/* non ridisegnare la pagina mentre l'utente scrive in una casella di testo; e se succede, conserva il testo */
+function _typing(){var a=document.activeElement;return !!(a&&a.tagName==='TEXTAREA')}
+function _keep(fn){return function(){
+  if(_typing())return;
+  var snap={};document.querySelectorAll('textarea').forEach(function(t){if(t.id&&t.value)snap[t.id]=t.value});
+  var r=fn.apply(this,arguments);
+  Object.keys(snap).forEach(function(id){var t=document.getElementById(id);if(t&&!t.value)t.value=snap[id]});
+  return r}}
+renderAll=_keep(renderAll);renderKn=_keep(renderKn);renderNewq=_keep(renderNewq);
 renderAll();animBars();startChat();
 if(AUTH&&AUTH.access){boot()}else{showLogin()}
 </script>
