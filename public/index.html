@@ -920,11 +920,12 @@ async function cercaHashtag(t){
   try{
     var r=await fetch('/.netlify/functions/hashtag',{method:'POST',headers:{'content-type':'application/json',Authorization:'Bearer '+AUTH.access},body:JSON.stringify({profilo:cur,tag:t})});
     var j=await r.json();if(!r.ok)throw new Error(j.error||'errore');
-    function lista(a){return a.length?a.slice(0,8).map(function(p){return '<div class="row"><span class="pf IG">IG</span><div class="grow"><div class="t">'+esc(p.media_type||'')+' · ♥ '+(p.like_count==null?'—':p.like_count)+' · 💬 '+(p.comments_count==null?'—':p.comments_count)+'</div><div class="m">'+esc((p.caption||'').slice(0,140))+(p.permalink?' · <a href="'+esc(p.permalink)+'" target="_blank" rel="noopener">apri su Instagram ↗</a>':'')+'</div></div></div>'}).join(''):'<div class="m">Nessun risultato.</div>'}
+    function lista(a){return a.length?a.slice(0,8).map(function(p){return '<div class="row"><span class="pf IG">IG</span><div class="grow"><div class="t">'+esc(p.media_type||'')+' · ♥ '+(p.like_count==null?'—':p.like_count)+' · 💬 '+(p.comments_count==null?'—':p.comments_count)+'</div><div class="m">'+esc((p.caption||'').slice(0,140))+(p.permalink?' · <a href="'+esc(p.permalink)+'" target="_blank" rel="noopener noreferrer">apri ↗</a> · <a href="#" data-cp="'+esc(p.permalink)+'">copia link</a>':'')+'</div></div></div>'}).join(''):'<div class="m">Nessun risultato.</div>'}
     out.innerHTML='<h3 style="margin-top:0">Più popolari con #'+esc(j.tag)+'</h3>'+lista(j.top)+'<h3>Più recenti</h3>'+lista(j.recenti);
   }catch(e){out.innerHTML='<div class="m">⚠️ '+esc(e.message)+'</div>'}
 }
 document.addEventListener('click',function(e){
+  if(e.target&&e.target.dataset&&e.target.dataset.cp){e.preventDefault();var u=e.target.dataset.cp;(navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(function(){toast('Link copiato: incollalo in Safari')}).catch(function(){prompt('Copia questo link',u)});return}
   if(e.target&&e.target.id==='ht-go')cercaHashtag($('ht-in').value);
   if(e.target&&e.target.dataset&&e.target.dataset.ht){$('ht-in').value=e.target.dataset.ht;cercaHashtag(e.target.dataset.ht)}
 });
