@@ -23,11 +23,11 @@ export default async (req) => {
   const { azione } = b;
   try {
     if (azione === "immagine") {
-      const { brand = {}, identita = {}, profilo = "", tema = "", hook = "", scene = [], caption = "", richiesta = "", formato = "", piattaforma = "", modo = "foto" } = b;
+      const { brand = {}, identita = {}, profilo = "", tema = "", hook = "", scene = [], caption = "", richiesta = "", formato = "", piattaforma = "", modo = "foto", senza_rif = false } = b;
       const ar = /pin/i.test(formato) ? "2:3" : /post|carosel|carousel/i.test(formato) ? "4:5" : "9:16";
       const post = modo === "post";
       const kn = await getConoscenza(profilo).catch(() => "");
-      const refs = (identita.riferimenti || []).map((r) => r.url).filter((u) => /^https:\/\/qudoygcfphqhhyenpwlr\.supabase\.co\/storage\//.test(u)).slice(0, 3);
+      const refs = senza_rif ? [] : (identita.riferimenti || []).map((r) => r.url).filter((u) => /^https:\/\/qudoygcfphqhhyenpwlr\.supabase\.co\/storage\//.test(u)).slice(0, 3);
       const refBlocks = refs.map((u) => ({ type: "image", source: { type: "url", url: u } }));
       const comune = `CONOSCENZA DEL BRAND:\n${String(kn).slice(0, 3500)}\nCONTENUTO: piattaforma ${piattaforma}, formato ${formato}. Tema: ${tema}. Hook: ${hook}. Scene: ${JSON.stringify(scene).slice(0, 500)}. Caption: ${String(caption).slice(0, 500)}.\nRICHIESTA DEL TITOLARE: ${richiesta || "nessuna: scegli tu"}.\nIdentità grafica: font titoli ${identita.font_titoli || ""}, font testo ${identita.font_testo || ""}, colori ${JSON.stringify(identita.colori || {})}, wordmark "${identita.wordmark || ""}", sottotitolo "${identita.sottotitolo || ""}". Stile: ${identita.stile || "minimale, pulito"}.`;
       const prompt = post
@@ -63,10 +63,10 @@ REGOLE: l'immagine deve rappresentare in modo diretto e riconoscibile il soggett
       if (!okHost(status_url || "") || !okHost(response_url || "")) return Response.json({ error: "url non valido" }, { status: 400 });
       const s = await (await fetch(status_url, { headers: FAL() })).json();
       if (s.status === "IN_QUEUE" || s.status === "IN_PROGRESS") return Response.json({ stato: "in_corso" });
-      if (s.status !== "COMPLETED") return Response.json({ stato: "errore", error: JSON.stringify(s).slice(0, 160) });
+      if (s.status !== "COMPLETED") return Response.json({ stato: "errore", error: JSON.stringify(s).slice(0, 400) });
       const rr = await fetch(response_url, { headers: FAL() });
       const out = await rr.json();
-      if (!rr.ok) return Response.json({ stato: "errore", error: "fal " + rr.status + " " + JSON.stringify(out).slice(0, 160) });
+      if (!rr.ok) return Response.json({ stato: "errore", error: "fal " + rr.status + " " + JSON.stringify(out).slice(0, 400) });
       if (tipo === "immagine") {
         const u = out.images?.[0]?.url; if (!u || !okHost(u)) return Response.json({ stato: "errore", error: "nessuna immagine" });
         const buf = Buffer.from(await (await fetch(u)).arrayBuffer());
