@@ -89,7 +89,7 @@ REGOLE: l'immagine deve rappresentare in modo diretto e riconoscibile il soggett
       if (!okHost(status_url || "") || !okHost(response_url || "")) return Response.json({ error: "url non valido" }, { status: 400 });
       const s = await (await fetch(status_url, { headers: FAL() })).json();
       if (s.status === "IN_QUEUE" || s.status === "IN_PROGRESS") return Response.json({ stato: "in_corso" });
-      if (s.status !== "COMPLETED") await dbg("stato " + JSON.stringify(s)); return Response.json({ stato: "errore", error: "stato " + JSON.stringify(s).slice(0, 400) });
+      if (s.status !== "COMPLETED") { await dbg("stato " + JSON.stringify(s)); return Response.json({ stato: "errore", error: "stato " + JSON.stringify(s).slice(0, 400) }); }
       const rr = await fetch(response_url, { headers: FAL() });
       const out = await rr.json();
       if (!rr.ok) await dbg("risultato " + rr.status + " " + JSON.stringify(out));
