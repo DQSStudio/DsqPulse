@@ -45,7 +45,8 @@ REGOLE: l'immagine deve rappresentare in modo diretto e riconoscibile il soggett
       let ep = IMG; if (post && refs.length) { ep = IMG_EDIT; input.image_urls = refs; }
       const r = await fetch("https://queue.fal.run/" + ep, { method: "POST", headers: FAL(), body: JSON.stringify(input) });
       const j = await r.json();
-      if (!r.ok) return Response.json({ error: "fal " + r.status + " " + JSON.stringify(j).slice(0, 160) }, { status: 502 });
+      if (!r.ok) console.error("fal start", r.status, JSON.stringify(j).slice(0, 600));
+      if (!r.ok) return Response.json({ error: "fal " + r.status + " " + JSON.stringify(j).slice(0, 300) }, { status: 502 });
       await consumo("immagine-ai", ep, 0.15);
       return Response.json({ tipo: "immagine", prompt, status_url: j.status_url, response_url: j.response_url });
     }
@@ -65,9 +66,10 @@ REGOLE: l'immagine deve rappresentare in modo diretto e riconoscibile il soggett
       if (!okHost(status_url || "") || !okHost(response_url || "")) return Response.json({ error: "url non valido" }, { status: 400 });
       const s = await (await fetch(status_url, { headers: FAL() })).json();
       if (s.status === "IN_QUEUE" || s.status === "IN_PROGRESS") return Response.json({ stato: "in_corso" });
-      if (s.status !== "COMPLETED") return Response.json({ stato: "errore", error: JSON.stringify(s).slice(0, 400) });
+      if (s.status !== "COMPLETED") console.error("fal stato", JSON.stringify(s).slice(0, 600)); return Response.json({ stato: "errore", error: "stato " + JSON.stringify(s).slice(0, 400) });
       const rr = await fetch(response_url, { headers: FAL() });
       const out = await rr.json();
+      if (!rr.ok) console.error("fal risultato", rr.status, JSON.stringify(out).slice(0, 600));
       if (!rr.ok) return Response.json({ stato: "errore", error: "fal " + rr.status + " " + JSON.stringify(out).slice(0, 400) });
       if (tipo === "immagine") {
         const u = out.images?.[0]?.url; if (!u || !okHost(u)) return Response.json({ stato: "errore", error: "nessuna immagine" });

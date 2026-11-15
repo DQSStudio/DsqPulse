@@ -823,13 +823,13 @@ function libHtml(){var L=LIB.filter(function(l){return l.profilo===cur});if(!L.l
 document.addEventListener('click',function(e){var t=e.target;if(!t||!t.dataset)return;if(t.dataset.lib)apriLavoro(t.dataset.lib);if(t.dataset.libdel)eliminaLavoro(t.dataset.libdel);if(t.dataset.gx==='chiudi'){W.result=null;renderCrea()}});
 async function falCall(body){var r=await fetch('/.netlify/functions/fal',{method:'POST',headers:{'content-type':'application/json',Authorization:'Bearer '+AUTH.access},body:JSON.stringify(body)});var j=await r.json().catch(function(){return{}});if(!r.ok)throw new Error(j.error||('errore '+r.status));return j}
 async function falAspetta(st,tipo,max){for(var i=0;i<max;i++){await new Promise(function(r){setTimeout(r,4000)});var x=await falCall({azione:'stato',status_url:st.status_url,response_url:st.response_url,tipo:tipo});if(x.stato==='pronto')return x;if(x.stato==='errore')throw new Error(x.error||'generazione non riuscita')}throw new Error('tempo scaduto, riprova')}
-async function aiImmagine(modo){var R=W.result;if(!R||R.aiBusy)return;var inp=document.getElementById('gx-rich');var rich=inp?inp.value:R.rich||'';R.rich=rich;R.aiBusy='Sto creando l\'immagine… (circa 30 secondi)';renderCrea();
+async function aiImmagine(modo){var R=W.result;if(!R||R.aiBusy)return;var inp=document.getElementById('gx-rich');var rich=inp?inp.value:R.rich||'';R.rich=rich;R.aiErr=null;R.aiBusy='Sto creando l\'immagine… (circa 30 secondi)';renderCrea();
   var st,x,ultimo='';
   for(var tent=0;tent<2&&!x;tent++){
     try{st=await falCall({azione:'immagine',modo:modo||'foto',senza_rif:tent===1,brand:brandOf(cur),identita:Object.assign({},ST[cur].identita,giOf(cur)),profilo:cur,tema:R.t,hook:(R.c||{}).hook||'',scene:(R.c||{}).scene||[],caption:R.cap||'',richiesta:rich,esempio:R.esempio||'',formato:R.f,piattaforma:PF[R.p]});
       x=await falAspetta(st,'immagine',30)}
     catch(e){ultimo=e.message;x=null;if(modo!=='post')break}}
-  if(!x){toast('Immagine non riuscita: '+ultimo)}
+  if(!x){R.aiErr=ultimo;toast('Immagine non riuscita')}
   else{try{
     var im=new Image();await new Promise(function(ok,ko){im.onload=ok;im.onerror=function(){ko(new Error('immagine non leggibile'))};im.src=x.data});
     R.aiImg=im;R.photoImg=(modo==='post')?null:im;R.video=null;R.baseUrl=null;R.mediaUrl=null;R.mediaUrls=null;R.aiPrompt=st.prompt;R.gfx={spec:{nota:'Immagine AI: '+st.prompt},url:x.data,ai:true};caricaCosto();
@@ -845,6 +845,7 @@ async function aiVideo(d){var R=W.result;if(!R||R.aiBusy||!R.gfx)return;var inp=
 function aiBlock(R){
   var h='<h3>Immagine e video AI</h3>';
   if(R.aiBusy)return h+'<div class="m">⏳ '+esc(R.aiBusy)+'</div>';
+  if(R.aiErr)h+='<div class="m" style="color:#b3261e;word-break:break-word">⚠️ '+esc(R.aiErr)+'</div>';
   var reel=/reel|video|stori/i.test(R.f);
   h+='<div style="margin-bottom:10px">'+(R.esempio?'<div style="display:flex;gap:10px;align-items:center"><img src="'+esc(R.esempio)+'" style="width:56px;height:70px;object-fit:cover;border-radius:8px;border:1px solid #ddd"><div class="m" style="margin:0;flex:1">Post di esempio: l\'agente ricalca questo layout, cambiando solo i testi.</div><button class="btn sm ghost" data-gx="noex">✕</button></div>':'<label class="btn sm ghost" style="cursor:pointer;display:inline-block">Carica un post di esempio<input type="file" id="gx-ex" accept="image/*" style="display:none"></label><div class="m" style="margin-top:4px">Un tuo post fatto bene: il nuovo viene creato con lo stesso layout, font e colori.</div>')+'</div>';
   h+='<input id="gx-rich" value="'+esc(R.rich||'')+'" placeholder="Cosa vuoi vedere? (facoltativo)" style="width:100%;margin-bottom:8px">'+
