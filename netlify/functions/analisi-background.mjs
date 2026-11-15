@@ -1,6 +1,6 @@
 // Analisi di mercato con ricerca web reale (Claude + web search). Salva risultato e profili proposti.
 import { readFileSync } from "node:fs";
-import { ORG, rpc, userIsMember } from "./_lib.mjs";
+import { ORG, rpc, userIsMember, logUso } from "./_lib.mjs";
 const KB = { studio: readFileSync(new URL("./brand-studio.txt", import.meta.url), "utf8") };
 const MODEL = "claude-sonnet-5-5";
 export default async (req) => {
@@ -22,6 +22,7 @@ Rispondi SOLO con JSON valido: {"sintesi":"4-6 righe","formati":[{"nome":"","per
       const r = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: { "x-api-key": process.env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
         body: JSON.stringify({ model: MODEL, max_tokens: 8000, tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 8 }], messages }) });
       const j = await r.json();
+      await logUso("analisi", MODEL, j.usage);
       if (!r.ok) throw new Error("Anthropic " + r.status + " " + JSON.stringify(j).slice(0, 200));
       text = (j.content || []).filter((b) => b.type === "text").map((b) => b.text).join("");
       if (j.stop_reason === "pause_turn") { messages = [...messages, { role: "assistant", content: j.content }]; continue; }
@@ -35,6 +36,7 @@ Rispondi SOLO con JSON valido: {"sintesi":"4-6 righe","formati":[{"nome":"","per
       const r2 = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: { "x-api-key": process.env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
         body: JSON.stringify({ model: MODEL, max_tokens: 8000, messages: [{ role: "user", content: "Questo JSON è malformato. Restituiscilo identico nei contenuti ma valido (escape corretto di virgolette e a capo). Rispondi solo con il JSON.\n\n" + text }] }) });
       const j2 = await r2.json();
+      await logUso("analisi-riparazione", MODEL, j2.usage);
       dati = estrai((j2.content || []).map((b) => b.text || "").join(""));
     }
     await set("pronta", dati, null);

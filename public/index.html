@@ -209,7 +209,7 @@ svg text{font-family:'Outfit',sans-serif}
 <!-- INTERFACCIA -->
 <main class="main">
   <div class="top">
-    <div><div class="logo"><span>Social</span><sup>®</sup></div><div class="demo">by Desearq Lab · versione in sviluppo</div></div>
+    <div><div class="logo"><span>Social</span><sup>®</sup></div><div class="demo">by Desearq Lab · versione in sviluppo</div><div class="demo" id="costo" style="margin-top:2px;opacity:.75;letter-spacing:.04em"></div></div>
     <div class="profsel" id="profsel"><button data-p="studio" class="on">Studio</button><button data-p="lab">Lab</button></div>
   </div>
   <div class="tabs" id="tabs">
@@ -468,7 +468,7 @@ function showLogin(){
   o.style.display='flex';
 }
 async function boot(){
-  try{await loadAll();await loadAnalisi();var o=$('login');if(o)o.style.display='none';renderAll();autoMiei()}
+  try{await loadAll();await loadAnalisi();var o=$('login');if(o)o.style.display='none';renderAll();autoMiei();caricaCosto()}
   catch(e){if(!AUTH)showLogin();else{toast('Errore nel caricamento dati');var o2=$('login');if(o2)o2.style.display='none'}}
 }
 
@@ -502,7 +502,7 @@ async function loadAnalisi(){
 function dt(t){try{return new Date(t).toLocaleString('it-IT',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}catch(e){return ''}}
 function waitAn(){var k=cur,n=0;var iv=setInterval(async function(){n++;await loadAnalisi();var m=AN[k].mercato;
   if(k===cur){renderMercato();renderIdee();renderRis();renderAll()}
-  if((m&&m.stato!=='in_corso')||n>60)clearInterval(iv)},5000)}
+  if((m&&m.stato!=='in_corso')||n>60){clearInterval(iv);caricaCosto()}},5000)}
 document.addEventListener('click',async function(e){
   var id=e.target&&e.target.id;
   if(id==='mer-btn'){e.target.disabled=true;
@@ -522,6 +522,11 @@ async function autoMiei(){
     need.forEach(function(a){fetch('/.netlify/functions/monitor-background',{method:'POST',headers:{'content-type':'application/json',Authorization:'Bearer '+AUTH.access},body:JSON.stringify({profilo:a.profilo})}).catch(function(){})});
     var n=0,iv=setInterval(async function(){n++;await loadAnalisi();renderAll();if(n>8)clearInterval(iv)},8000);
   }catch(e){}
+}
+
+async function caricaCosto(){
+  try{var r=await sbq('pulse_costo_mese?select=*');var c=r[0]||{costo_usd:0,chiamate:0,ricerche:0};
+    $('costo').textContent='Costo AI questo mese: $'+c.costo_usd.toFixed(2)+' ('+c.chiamate+' chiamate, '+c.ricerche+' ricerche web)'}catch(e){}
 }
 function okAn(m){return !!(m&&m.dati&&Object.keys(m.dati).length)}
 function pct(x){return (x==null?'—':x+'%')}
@@ -725,7 +730,7 @@ async function generate(){
     var rr=await fetch('/.netlify/functions/generate',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({risposte:memoria(cur),profilo:cur,brand:{name:P.name,lead:P.lead,tono:P.tono,target:P.target},tema:W.result.t,social:PF[W.p],formato:W.f,note:W.note||''})});
     if(rr.ok){var g=await rr.json();if(g&&g.hook&&g.cap){c={hook:g.hook,scene:(g.scene&&g.scene.length?g.scene:c.scene),cap:g.cap,tags:g.tags||c.tags};cap=c.cap;W.result.c=c;W.result.cap=cap;}}
   }catch(e){}
-  W.result.loading=false;renderCrea();
+  caricaCosto();W.result.loading=false;renderCrea();
   var m=await say('Ecco la bozza.<div class="rc"><small>Hook</small>'+esc(c.hook)+'</div><div class="rc"><small>Caption</small>'+esc(cap.length>130?cap.slice(0,130)+'…':cap)+'</div>');
   if(window.innerWidth<980){setQuick([{label:'Vedi anteprima completa',main:true,fn:function(){$('chat').classList.remove('open');go('crea');setTimeout(recommend,0)}}]);}
   else recommend();

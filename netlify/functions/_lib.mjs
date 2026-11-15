@@ -31,3 +31,12 @@ export async function userIsMember(jwt) {
   const j = await r.json();
   return Array.isArray(j) && j.length > 0;
 }
+
+// Registra il consumo di una chiamata Anthropic (prezzi Sonnet 5.5: $2/M input, $10/M output, $10 ogni 1000 ricerche web).
+export async function logUso(funzione, modello, usage) {
+  try {
+    const i = usage?.input_tokens || 0, o = usage?.output_tokens || 0, r = usage?.server_tool_use?.web_search_requests || 0;
+    const costo = (i * 2 + o * 10) / 1e6 + r * 0.01;
+    await rpc("pulse_fn_consumo", { p_org: ORG, p_funzione: funzione, p_modello: modello, p_in: i, p_out: o, p_ricerche: r, p_costo: costo });
+  } catch {}
+}

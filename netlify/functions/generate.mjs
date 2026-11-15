@@ -1,6 +1,7 @@
 // Genera hook, scene, caption e hashtag con Claude. La chiave resta lato server.
 import { readFileSync } from "node:fs";
 const KB = { studio: readFileSync(new URL("./brand-studio.txt", import.meta.url), "utf8") };
+import { logUso } from "./_lib.mjs";
 const MODEL = "claude-sonnet-5-5";
 export default async (req) => {
   if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
@@ -27,6 +28,7 @@ Rispondi SOLO con JSON valido: {"hook":"prima frase che cattura","scene":["3-5 s
   });
   if (!r.ok) return Response.json({ error: "anthropic " + r.status, detail: (await r.text()).slice(0, 300) }, { status: 502 });
   const j = await r.json();
+  await logUso("generate", MODEL, j.usage);
   const txt = (j.content || []).map((x) => x.text || "").join("");
   const m = txt.match(/\{[\s\S]*\}/);
   try { return Response.json(JSON.parse(m[0])); }

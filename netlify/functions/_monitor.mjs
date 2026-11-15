@@ -1,5 +1,5 @@
 // Legge profili Instagram pubblici (Business Discovery) e i dati propri; calcola metriche reali.
-import { GRAPH, ORG, rpc } from "./_lib.mjs";
+import { GRAPH, ORG, rpc, logUso } from "./_lib.mjs";
 const MODEL = "claude-sonnet-5-5";
 const FIELDS = "caption,media_type,like_count,comments_count,timestamp,permalink";
 const avg = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
@@ -21,7 +21,7 @@ function riassumi(followers, media) {
 async function g(u) { const r = await fetch(u); const j = await r.json(); if (!r.ok || j.error) throw new Error(j.error?.message || "errore Meta"); return j; }
 async function claude(prompt, max = 1500) {
   const r = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: { "x-api-key": process.env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" }, body: JSON.stringify({ model: MODEL, max_tokens: max, messages: [{ role: "user", content: prompt }] }) });
-  const j = await r.json(); return (j.content || []).map((x) => x.text || "").join("");
+  const j = await r.json(); await logUso("monitor", MODEL, j.usage); return (j.content || []).map((x) => x.text || "").join("");
 }
 export async function runMonitor(profilo) {
   const acc = ((await rpc("pulse_fn_account", { p_profilo: profilo })) || [])[0];
