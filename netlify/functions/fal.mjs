@@ -1,9 +1,9 @@
 // Immagini e video AI su richiesta (fal.ai). Azioni: immagine, video, stato.
 import { userIsMember, logUso, rpc, ORG, SB, SBK, getConoscenza } from "./_lib.mjs";
 const MODEL = "claude-sonnet-5-5";
-const IMG = "fal-ai/flux-pro/v1.1", VID = "fal-ai/kling-video/v2.1/standard/image-to-video";
+const IMG = "fal-ai/nano-banana-pro", IMG_EDIT = "fal-ai/nano-banana-pro/edit", VID = "fal-ai/kling-video/v2.1/standard/image-to-video";
 const FAL = () => ({ Authorization: "Key " + process.env.FAL_KEY, "content-type": "application/json" });
-const okHost = (u) => /^https:\/\/[a-z0-9.-]+\.fal\.(run|media|ai)\//.test(u);
+const okHost = (u) => /^https:\/\/([a-z0-9.-]+\.fal\.(run|media|ai)\/|storage\.googleapis\.com\/falserverless\/)/.test(u);
 
 async function consumo(funzione, modello, costo) { try { await rpc("pulse_fn_consumo", { p_org: ORG, p_funzione: funzione, p_modello: modello, p_in: 0, p_out: 0, p_ricerche: 0, p_costo: costo }); } catch {} }
 
@@ -23,21 +23,28 @@ export default async (req) => {
   const { azione } = b;
   try {
     if (azione === "immagine") {
-      const { brand = {}, identita = {}, profilo = "", tema = "", hook = "", scene = [], caption = "", richiesta = "", formato = "", piattaforma = "" } = b;
-      const verticale = !/post|carosel|carousel/i.test(formato) || /pin/i.test(formato);
+      const { brand = {}, identita = {}, profilo = "", tema = "", hook = "", scene = [], caption = "", richiesta = "", formato = "", piattaforma = "", modo = "foto" } = b;
+      const ar = /pin/i.test(formato) ? "2:3" : /post|carosel|carousel/i.test(formato) ? "4:5" : "9:16";
+      const post = modo === "post";
       const kn = await getConoscenza(profilo).catch(() => "");
-      const refs = (identita.riferimenti || []).map((r) => r.url).filter((u) => /^https:\/\/qudoygcfphqhhyenpwlr\.supabase\.co\/storage\//.test(u)).slice(0, 3).map((u) => ({ type: "image", source: { type: "url", url: u } }));
-      const prompt = await promptDa(`Sei il direttore creativo di ${brand.name || "un brand"}. Devi scrivere UN prompt in inglese (max 90 parole) per un generatore di immagini fotografiche (Flux) che produca l'immagine giusta per QUESTO contenuto.
-CONOSCENZA DEL BRAND (cosa fa, per chi, come si presenta):
-${String(kn).slice(0, 3500)}
-CONTENUTO: piattaforma ${piattaforma}, formato ${formato}. Tema: ${tema}. Hook: ${hook}. Scene: ${JSON.stringify(scene).slice(0, 500)}. Caption: ${String(caption).slice(0, 500)}.
-RICHIESTA SPECIFICA DEL TITOLARE: ${richiesta || "nessuna: scegli tu"}.
-Stile grafico del brand: ${identita.stile || "minimale, pulito"}; palette ${JSON.stringify(identita.colori || {})}.${refs.length ? " Ti allego grafiche di riferimento del brand: l'immagine deve essere coerente per atmosfera, luce e palette." : ""}
-REGOLE: l'immagine deve rappresentare in modo diretto e riconoscibile il soggetto del contenuto e il mondo reale del brand (il suo pubblico, il suo ambiente di lavoro, i suoi prodotti), mai texture astratte o oggetti casuali. Se il brand vende software, mostra ciò che il software cambia nel lavoro (studio di architettura, scrivania con monitor e planimetrie, modelli, cantiere) con schermi dall'interfaccia astratta e senza testo leggibile. Se è interior design, mostra ambienti reali e curati. Descrivi soggetto, ambiente, luce, inquadratura, materiali, atmosfera; look fotografico editoriale realistico. NESSUN testo, logo, scritta, volto riconoscibile. Rispondi solo con il prompt.`, refs);
-      const r = await fetch("https://queue.fal.run/" + IMG, { method: "POST", headers: FAL(), body: JSON.stringify({ prompt, image_size: verticale ? "portrait_16_9" : "portrait_4_3", num_images: 1, output_format: "jpeg", safety_tolerance: "2" }) });
+      const refs = (identita.riferimenti || []).map((r) => r.url).filter((u) => /^https:\/\/qudoygcfphqhhyenpwlr\.supabase\.co\/storage\//.test(u)).slice(0, 3);
+      const refBlocks = refs.map((u) => ({ type: "image", source: { type: "url", url: u } }));
+      const comune = `CONOSCENZA DEL BRAND:\n${String(kn).slice(0, 3500)}\nCONTENUTO: piattaforma ${piattaforma}, formato ${formato}. Tema: ${tema}. Hook: ${hook}. Scene: ${JSON.stringify(scene).slice(0, 500)}. Caption: ${String(caption).slice(0, 500)}.\nRICHIESTA DEL TITOLARE: ${richiesta || "nessuna: scegli tu"}.\nIdentità grafica: font titoli ${identita.font_titoli || ""}, font testo ${identita.font_testo || ""}, colori ${JSON.stringify(identita.colori || {})}, wordmark "${identita.wordmark || ""}", sottotitolo "${identita.sottotitolo || ""}". Stile: ${identita.stile || "minimale, pulito"}.`;
+      const prompt = post
+        ? await promptDa(`Sei il direttore creativo di ${brand.name || "un brand"}. Scrivi UN prompt in inglese (max 170 parole) per un generatore di immagini che sa scrivere testo (Nano Banana Pro) per produrre la GRAFICA SOCIAL FINITA di questo contenuto, pronta da pubblicare.
+${comune}
+${refBlocks.length ? "Ti allego grafiche di riferimento del brand: la nuova grafica deve avere la stessa impostazione (gerarchia, spazi, linee sottili, allineamento, wordmark in alto, stile tipografico) ma contenuto diverso; indicalo nel prompt come 'match the visual style of the reference images'." : ""}
+Nel prompt scrivi: formato verticale ${ar}, layout preciso (wordmark in alto a sinistra con linea sottile, titolo grande, sottotitolo, eventuale elemento visivo coerente con il tema, firma in basso), colori in esadecimale, font descritto (es. clean geometric sans-serif), e i TESTI ESATTI in italiano tra virgolette (titolo massimo 8 parole, sottotitolo massimo 12 parole, eventuale invito all'azione breve). Il testo deve essere corretto, senza refusi, senza testo extra. Nessun dato inventato. Se il brand vende software, l'eventuale visual mostra il prodotto o il lavoro dello studio in modo astratto e pulito. Rispondi solo con il prompt.`, refBlocks)
+        : await promptDa(`Sei il direttore creativo di ${brand.name || "un brand"}. Scrivi UN prompt in inglese (max 100 parole) per un generatore di immagini fotografiche che produca l'immagine giusta per QUESTO contenuto.
+${comune}
+${refBlocks.length ? "Ti allego grafiche di riferimento del brand: l'immagine deve essere coerente per atmosfera, luce e palette." : ""}
+REGOLE: l'immagine deve rappresentare in modo diretto e riconoscibile il soggetto del contenuto e il mondo reale del brand (pubblico, ambiente di lavoro, prodotti), mai texture astratte o oggetti casuali. Se il brand vende software, mostra ciò che il software cambia nel lavoro (studio di architettura, scrivania con monitor e planimetrie, modelli, cantiere) con schermi dall'interfaccia astratta. Se è interior design, ambienti reali e curati. Descrivi soggetto, ambiente, luce, inquadratura, materiali, atmosfera; look fotografico editoriale. Nessun testo, logo, scritta, volto riconoscibile. Rispondi solo con il prompt.`, refBlocks);
+      const input = { prompt, aspect_ratio: ar, resolution: "1K", num_images: 1, output_format: "jpeg" };
+      let ep = IMG; if (post && refs.length) { ep = IMG_EDIT; input.image_urls = refs; }
+      const r = await fetch("https://queue.fal.run/" + ep, { method: "POST", headers: FAL(), body: JSON.stringify(input) });
       const j = await r.json();
       if (!r.ok) return Response.json({ error: "fal " + r.status + " " + JSON.stringify(j).slice(0, 160) }, { status: 502 });
-      await consumo("immagine-ai", IMG, 0.04);
+      await consumo("immagine-ai", ep, 0.15);
       return Response.json({ tipo: "immagine", prompt, status_url: j.status_url, response_url: j.response_url });
     }
     if (azione === "video") {

@@ -732,18 +732,21 @@ async function drawGrafica(spec,g,photo,f,pos){
   if(g.wordmark)x.fillText(g.wordmark,M,M+34);
   if(pos){x.textAlign='right';x.font='500 32px "'+g.font_testo+'"';x.fillText(pos.i+' / '+pos.n,Wd-M,M+34);x.textAlign='left'}
   x.fillStyle=usaFoto?'#ffffff':C.primario;x.globalAlpha=.9;x.fillRect(M,M+70,maxW,2);x.globalAlpha=1;
-  var y=Hd*0.30;x.textAlign=al;
+  var y=Hd*(spec.template==='elenco'?0.19:0.30);x.textAlign=al;
   if(spec.template==='citazione'){x.fillStyle=C.primario;x.font='700 260px "'+g.font_titoli+'"';x.fillText('\u201C',ax,y+60);y+=150}
   else{x.fillStyle=usaFoto?'#ffffff':C.primario;x.fillRect(al==='center'?Wd/2-60:M,y-40,120,6)}
-  var t=fitText(x,spec.titolo,g.font_titoli,spec.template==='elenco'?'700':'700',maxW,spec.template==='elenco'?3:5,spec.template==='elenco'?84:112,48);
+  var t=fitText(x,spec.titolo,g.font_titoli,spec.template==='elenco'?'700':'700',maxW,spec.template==='elenco'?3:5,spec.template==='elenco'?72:112,44);
   x.fillStyle=tc;x.font='700 '+t.sz+'px "'+g.font_titoli+'"';
   t.lines.forEach(function(l,i){x.fillText(l,ax,y+(i+1)*t.sz*1.12)});y+=t.lines.length*t.sz*1.12+40;
   if(spec.sottotitolo){x.globalAlpha=.85;var s2=fitText(x,spec.sottotitolo,g.font_testo,'400',maxW,3,44,30);x.font='400 '+s2.sz+'px "'+g.font_testo+'"';s2.lines.forEach(function(l,i){x.fillText(l,ax,y+(i+1)*s2.sz*1.35)});y+=s2.lines.length*s2.sz*1.35+30;x.globalAlpha=1}
   if(spec.template==='elenco'&&(spec.punti||[]).length){
-    y+=30;(spec.punti||[]).slice(0,4).forEach(function(p,i){
-      x.textAlign='left';x.fillStyle=usaFoto?'#ffffff':C.primario;x.globalAlpha=1;x.font='600 40px "'+g.font_titoli+'"';x.fillText(('0'+(i+1)).slice(-2),M,y+44);
-      x.fillStyle=tc;x.font='400 42px "'+g.font_testo+'"';var L=wrapLines(x,p,maxW-120);L.slice(0,2).forEach(function(l,j){x.fillText(l,M+110,y+44+j*54)});
-      var hh=Math.max(1,L.slice(0,2).length)*54+36;y+=hh;x.globalAlpha=.35;x.fillRect(M,y,maxW,2);x.globalAlpha=1;y+=22})}
+    y+=10;var lim=Hd-M-170;(spec.punti||[]).slice(0,4).forEach(function(p0,i){
+      var p=String(p0).replace(/^\s*(\d{1,2}\s*[\.\)\-:]\s*|\d{1,2}\s+)/,'');
+      x.textAlign='left';x.font='400 40px "'+g.font_testo+'"';var L=wrapLines(x,p,maxW-110).slice(0,2),hh=L.length*52+34;
+      if(y+hh>lim)return;
+      x.fillStyle=usaFoto?'#ffffff':C.primario;x.globalAlpha=1;x.font='600 38px "'+g.font_titoli+'"';x.fillText(('0'+(i+1)).slice(-2),M,y+42);
+      x.fillStyle=tc;x.font='400 40px "'+g.font_testo+'"';L.forEach(function(l,j){x.fillText(l,M+110,y+42+j*52)});
+      y+=hh;x.globalAlpha=.35;x.fillRect(M,y,maxW,2);x.globalAlpha=1;y+=18})}
   if(spec.cta){x.textAlign='left';x.fillStyle=usaFoto?'#ffffff':C.secondario;x.font='600 34px "'+g.font_testo+'"';spaced(x,spec.cta,al==='center'?Wd/2:M,Hd-M-110,6,al==='center'?'center':'left')}
   x.globalAlpha=.9;x.fillStyle=usaFoto?'#ffffff':C.primario;x.fillRect(M,Hd-M-60,maxW,2);x.globalAlpha=1;
   x.fillStyle=tc;x.font='500 28px "'+g.font_testo+'"';if(g.sottotitolo)spaced(x,g.sottotitolo,M,Hd-M-8,8,'left');
@@ -796,11 +799,11 @@ function libHtml(){var L=LIB.filter(function(l){return l.profilo===cur});if(!L.l
 document.addEventListener('click',function(e){var t=e.target;if(!t||!t.dataset)return;if(t.dataset.lib)apriLavoro(t.dataset.lib);if(t.dataset.libdel)eliminaLavoro(t.dataset.libdel);if(t.dataset.gx==='chiudi'){W.result=null;renderCrea()}});
 async function falCall(body){var r=await fetch('/.netlify/functions/fal',{method:'POST',headers:{'content-type':'application/json',Authorization:'Bearer '+AUTH.access},body:JSON.stringify(body)});var j=await r.json().catch(function(){return{}});if(!r.ok)throw new Error(j.error||('errore '+r.status));return j}
 async function falAspetta(st,tipo,max){for(var i=0;i<max;i++){await new Promise(function(r){setTimeout(r,4000)});var x=await falCall({azione:'stato',status_url:st.status_url,response_url:st.response_url,tipo:tipo});if(x.stato==='pronto')return x;if(x.stato==='errore')throw new Error(x.error||'generazione non riuscita')}throw new Error('tempo scaduto, riprova')}
-async function aiImmagine(){var R=W.result;if(!R||R.aiBusy)return;var inp=document.getElementById('gx-rich');var rich=inp?inp.value:R.rich||'';R.rich=rich;R.aiBusy='Sto creando l\'immagine… (circa 20 secondi)';renderCrea();
-  try{var st=await falCall({azione:'immagine',brand:brandOf(cur),identita:Object.assign({},ST[cur].identita,giOf(cur)),profilo:cur,tema:R.t,hook:(R.c||{}).hook||'',scene:(R.c||{}).scene||[],caption:R.cap||'',richiesta:rich,formato:R.f,piattaforma:PF[R.p]});
+async function aiImmagine(modo){var R=W.result;if(!R||R.aiBusy)return;var inp=document.getElementById('gx-rich');var rich=inp?inp.value:R.rich||'';R.rich=rich;R.aiBusy='Sto creando l\'immagine… (circa 20 secondi)';renderCrea();
+  try{var st=await falCall({azione:'immagine',modo:modo||'foto',brand:brandOf(cur),identita:Object.assign({},ST[cur].identita,giOf(cur)),profilo:cur,tema:R.t,hook:(R.c||{}).hook||'',scene:(R.c||{}).scene||[],caption:R.cap||'',richiesta:rich,formato:R.f,piattaforma:PF[R.p]});
     var x=await falAspetta(st,'immagine',30);
     var im=new Image();await new Promise(function(ok,ko){im.onload=ok;im.onerror=function(){ko(new Error('immagine non leggibile'))};im.src=x.data});
-    R.aiImg=im;R.photoImg=im;R.video=null;R.baseUrl=null;R.mediaUrl=null;R.mediaUrls=null;R.aiPrompt=st.prompt;R.gfx={spec:{nota:'Immagine AI: '+st.prompt},url:x.data,ai:true};caricaCosto();
+    R.aiImg=im;R.photoImg=(modo==='post')?null:im;R.video=null;R.baseUrl=null;R.mediaUrl=null;R.mediaUrls=null;R.aiPrompt=st.prompt;R.gfx={spec:{nota:'Immagine AI: '+st.prompt},url:x.data,ai:true};caricaCosto();
     try{R.aiUrl=await uploadMedia(b64Blob(x.data.split(',')[1],'image/jpeg'),cur+'/ai-'+Date.now()+'.jpg');R.mediaUrl=R.aiUrl}catch(e){toast('Immagine non salvata: '+e.message)}}
   catch(e){toast('Immagine non riuscita: '+e.message)}
   R.aiBusy=null;renderCrea();salvaLavoro()}
@@ -815,9 +818,9 @@ function aiBlock(R){
   if(R.aiBusy)return h+'<div class="m">⏳ '+esc(R.aiBusy)+'</div>';
   var reel=/reel|video|stori/i.test(R.f);
   h+='<input id="gx-rich" value="'+esc(R.rich||'')+'" placeholder="Cosa vuoi vedere? (facoltativo)" style="width:100%;margin-bottom:8px">'+
-    '<div style="display:flex;flex-wrap:wrap;gap:8px"><button class="btn sm" data-gx="ai">'+((R.gfx&&R.gfx.ai)?'Altra immagine AI':'Genera immagine AI')+'</button>'+
+    '<div style="display:flex;flex-wrap:wrap;gap:8px"><button class="btn sm" data-gx="aipost">'+(R.f==='Carousel'?'Copertina completa con AI':'Post completo con AI (con testo)')+'</button><button class="btn sm ghost" data-gx="ai">Solo immagine (senza testo)</button>'+
     (reel&&R.gfx?'<button class="btn sm" data-gx="vid5">Anima in video 5s</button><button class="btn sm ghost" data-gx="vid10">10s</button>':'')+'</div>'+
-    '<div class="m" style="margin-top:6px">Immagine ≈ 4 cent, video ≈ 35 cent (5s). L\'immagine non contiene testo: per scritte usa la grafica.'+(reel&&!R.gfx?' Per un reel prima crea l\'immagine o la grafica, poi la animi.':'')+'</div>';
+    '<div class="m" style="margin-top:6px">Post completo e immagine ≈ 15 cent, video ≈ 35 cent (5s). Il post completo usa le tue grafiche di riferimento e scrive i testi in italiano; scrivi sopra cosa vuoi (soggetto, testi, stile) per un risultato più preciso.'+(reel&&!R.gfx?' Per un reel prima crea l\'immagine o la grafica, poi la animi.':'')+'</div>';
   if(R.video)h+='<video src="'+R.video+'" controls playsinline loop style="width:100%;max-width:340px;border-radius:12px;margin-top:8px"></video><div class="m">✓ Video pronto per la pubblicazione.</div>';
   return h}
 function gfxBlock(R){
@@ -833,7 +836,7 @@ function gfxBlock(R){
 document.addEventListener('click',function(e){var a=e.target&&e.target.dataset&&e.target.dataset.gx;if(!a)return;var R=W.result;if(!R)return;
   if(a==='nuova'){R.gv=(R.gfx?(R.gv||0)+1:0);creaGrafica(R.gv)}
   if(a==='nofoto'){R.photoImg=null;ridisegna()}
-  if(a==='ai')aiImmagine();if(a==='vid5')aiVideo(5);if(a==='vid10')aiVideo(10)});
+  if(a==='ai')aiImmagine('foto');if(a==='aipost')aiImmagine('post');if(a==='vid5')aiVideo(5);if(a==='vid10')aiVideo(10)});
 document.addEventListener('change',function(e){if(!e.target||e.target.id!=='gx-photo')return;var f=e.target.files[0];if(!f)return;
   var u=URL.createObjectURL(f),im=new Image();im.onload=function(){W.result.photoImg=im;W.result.gfx.spec.foto=true;ridisegna()};im.onerror=function(){toast('Foto non leggibile')};im.src=u});
 async function uploadGfx(){var R=W.result;if(!R||!R.gfx||R.mediaUrl)return;
