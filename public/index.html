@@ -959,9 +959,28 @@ async function askSocial(){
   await say('Per quale social?');
   setQuick(o.map(function(x){return {label:PF[x[0]]+' · '+x[1],fn:function(){W.p=x[0];W.f=x[1];askTema()}}}));
 }
+function ideeDisp(){var nu=AN[cur].idee,m=AN[cur].mercato;var il=((nu&&nu.stato==='pronta'&&nu.dati&&nu.dati.idee)||[]).concat((okAn(m)&&m.dati.idee)||[]);
+  var usati=ST[cur].posts.map(function(x){return String(x.t||'').toLowerCase()});
+  var f=il.filter(function(i){return i&&i.titolo&&usati.indexOf(String(i.titolo).toLowerCase())<0});
+  var match=f.filter(function(i){return !W.f||String(i.formato||'').toLowerCase()===String(W.f).toLowerCase()});
+  return (match.length>=3?match:f).slice(0,5)}
+async function nuoveIdee(){
+  await say('Cerco idee nuove su dati reali: mercato, hashtag e i tuoi risultati… ci vuole circa un minuto.');
+  try{var r=await fetch('/.netlify/functions/idee',{method:'POST',headers:{'content-type':'application/json',Authorization:'Bearer '+AUTH.access},body:JSON.stringify({profilo:cur,brand:brandOf(cur),contesto:contestoIdee(cur)})});
+    var j=await r.json();if(!r.ok)throw new Error(j.error||'errore');await loadAnalisi();caricaCosto()}
+  catch(err){await say('Non sono riuscito: '+esc(err.message))}
+  askTema()}
 async function askTema(){
-  await say('Su cosa vuoi puntare? Questi sono i temi più forti per '+esc(PR[cur].name)+' in questo momento.');
-  var d=PR[cur].temi.map(function(t,i){return {label:t,fn:function(){W.tema=i;askMat()}}});
+  var id=ideeDisp(),d;
+  if(id.length){
+    await say('Ho queste idee dai dati reali di '+esc(PR[cur].name)+'. Quale sviluppiamo?');
+    d=id.map(function(i){return {label:i.titolo,fn:function(){W.tema=null;W.temaTxt=i.titolo;W.gancio=i.gancio||'';askMat()}}});
+    d.push({label:'Nuove idee',fn:nuoveIdee});
+  }else{
+    await say('Non ho ancora idee fresche per '+esc(PR[cur].name)+': le genero adesso dai dati reali, oppure scegli un tema base.');
+    d=PR[cur].temi.slice(0,3).map(function(t,i){return {label:t,fn:function(){W.tema=i;askMat()}}});
+    d.unshift({label:'Genera idee con l\'agente',main:true,fn:nuoveIdee});
+  }
   d.push({label:'Lo scrivo io',fn:async function(){W.await='tema';await say('Dimmi in una riga di cosa si tratta.')}});
   setQuick(d);
 }
@@ -979,7 +998,7 @@ async function generate(){
   var steps=['Rileggo cosa so del profilo e del tono','Analizzo i top post del settore su questo tema','Scrivo hook, script e caption'];
   for(var i=0;i<steps.length;i++){await say('<small style="color:var(--mut)">'+steps[i]+'…</small>')}
   try{
-    var rr=await fetch('/.netlify/functions/generate',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({risposte:memoria(cur),profilo:cur,brand:{name:P.name,lead:P.lead,tono:P.tono,target:P.target},tema:W.result.t,social:PF[W.p],formato:W.f,note:W.note||''})});
+    var rr=await fetch('/.netlify/functions/generate',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({risposte:memoria(cur),profilo:cur,brand:{name:P.name,lead:P.lead,tono:P.tono,target:P.target},tema:W.result.t,social:PF[W.p],formato:W.f,note:(W.note||'')+(W.gancio?' Gancio suggerito: '+W.gancio:'')})});
     if(rr.ok){var g=await rr.json();if(g&&g.hook&&g.cap){c={hook:g.hook,scene:(g.scene&&g.scene.length?g.scene:c.scene),cap:g.cap,tags:g.tags||c.tags};cap=c.cap;W.result.c=c;W.result.cap=cap;}}
   }catch(e){}
   caricaCosto();W.result.loading=false;renderCrea();salvaLavoro();
