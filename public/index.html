@@ -743,6 +743,25 @@ function spaced(x,t,px,py,sp,align,maxW){
   t=String(t||'').toUpperCase();var w=0,i;for(i=0;i<t.length;i++)w+=x.measureText(t[i]).width+sp;w-=sp;
   var sx=align==='right'?px-w:align==='center'?px-w/2:px;x.textAlign='left';
   for(i=0;i<t.length;i++){x.fillText(t[i],sx,py);sx+=x.measureText(t[i]).width+sp}}
+function drawEd(x,spec,g,pos,Wd,Hd){
+  var C=g.colori,M=84,ink=C.testo,br=C.secondario||C.primario,maxW=Wd-2*M;
+  var lt=function(v){try{x.letterSpacing=v}catch(e){}};
+  x.textBaseline='alphabetic';x.textAlign='left';
+  x.fillStyle=br;[0,1,2].forEach(function(i){x.fillRect(M,86+i*30,92,5)});
+  var wm=String(g.wordmark||'').replace(/[®™]/g,'').trim().split(/\s+/);
+  x.fillStyle=ink;x.font='400 38px "'+g.font_testo+'"';lt('13px');x.fillText((wm[0]||'').toUpperCase(),M+128,112);
+  if(wm.length>1){x.font='400 26px "'+g.font_testo+'"';lt('11px');x.fillText(wm.slice(1).join(' ').toUpperCase(),M+128,152)}
+  if(pos){x.textAlign='right';x.font='400 28px "'+g.font_testo+'"';lt('6px');x.fillText(('0'+pos.i).slice(-2)+' / '+('0'+pos.n).slice(-2),Wd-M+6,112);x.textAlign='left'}
+  lt('0px');
+  x.fillStyle=br;x.fillRect(M,Math.round(Hd*0.288),250,6);
+  var t=String(spec.titolo||'').replace(/\\n/g,'\n'),sz=140,L,pw=g.peso_titoli||'400';
+  for(;sz>=60;sz-=4){x.font=pw+' '+sz+'px "'+g.font_titoli+'"';lt((-sz*0.035)+'px');L=[];t.split(/\n/).forEach(function(q){L=L.concat(wrapLines(x,q,maxW))});if(L.length<=5)break}
+  x.fillStyle=ink;var y0=Math.round(Hd*0.347+sz*0.72);L.forEach(function(l,i){x.fillText(l,M,y0+i*sz*1.07)});lt('0px');
+  var y=y0+(L.length-1)*sz*1.07+70;
+  if(spec.sottotitolo){x.globalAlpha=.8;x.font='400 40px "'+g.font_testo+'"';wrapLines(x,spec.sottotitolo,maxW).slice(0,3).forEach(function(l,i){x.fillText(l,M,y+i*54)});x.globalAlpha=1}
+  if(spec.cta){x.fillStyle=br;x.font='500 32px "'+g.font_testo+'"';spaced(x,spec.cta,M,Hd-M-30,8,'left')}
+  if(!pos||pos.i<pos.n){var cx=Wd-M-52,cy=Hd-M-48;x.strokeStyle=ink;x.lineWidth=3;x.beginPath();x.arc(cx,cy,52,0,Math.PI*2);x.stroke();
+    x.beginPath();x.moveTo(cx-24,cy);x.lineTo(cx+24,cy);x.moveTo(cx+10,cy-14);x.lineTo(cx+24,cy);x.lineTo(cx+10,cy+14);x.lineWidth=3;x.lineCap='round';x.lineJoin='round';x.stroke()}}
 async function drawGrafica(spec,g,photo,f,pos){
   var Wd=1080,Hd=gfxH(f),C=g.colori;
   await loadFonts([g.font_titoli,g.font_testo]);
@@ -751,6 +770,7 @@ async function drawGrafica(spec,g,photo,f,pos){
   var tc=C.testo,usaFoto=photo&&spec.foto!==false;
   if(usaFoto){var sc=Math.max(Wd/photo.width,Hd/photo.height),w=photo.width*sc,h=photo.height*sc;x.drawImage(photo,(Wd-w)/2,(Hd-h)/2,w,h);
     var gr=x.createLinearGradient(0,0,0,Hd);gr.addColorStop(0,'rgba(0,0,0,.55)');gr.addColorStop(.5,'rgba(0,0,0,.35)');gr.addColorStop(1,'rgba(0,0,0,.65)');x.fillStyle=gr;x.fillRect(0,0,Wd,Hd);tc='#ffffff'}
+  if(g.layout==='editoriale'&&!usaFoto){drawEd(x,spec,g,pos,Wd,Hd);return c.toDataURL('image/jpeg',0.92)}
   var M=96,al=spec.allineamento==='centro'?'center':'left',ax=al==='center'?Wd/2:M,maxW=Wd-2*M;
   x.textBaseline='alphabetic';x.fillStyle=tc;x.textAlign='left';x.font='500 36px "'+g.font_testo+'"';
   if(g.wordmark)x.fillText(g.wordmark,M,M+34);
@@ -1114,7 +1134,7 @@ function renderKn(){
 }
 
 var FONTS=['Jost','Montserrat','Poppins','Raleway','DM Sans','Inter','Playfair Display','Cormorant Garamond','Lora','Bebas Neue','Oswald','Archivo Black'],SINGLE=['Bebas Neue','Archivo Black'];
-function giOf(k){var g=ST[k].identita||{};return {def:!!g.font_titoli,font_titoli:g.font_titoli||'Jost',font_testo:g.font_testo||'Jost',colori:Object.assign({sfondo:'#F4EFE6',testo:'#111111',primario:'#C8B79A',secondario:'#6E2635'},g.colori||{}),stile:g.stile||'',wordmark:g.wordmark||'',sottotitolo:g.sottotitolo||'',riferimenti:g.riferimenti||[]}}
+function giOf(k){var g=ST[k].identita||{};return {def:!!g.font_titoli,font_titoli:g.font_titoli||'Jost',font_testo:g.font_testo||'Jost',colori:Object.assign({sfondo:'#F4EFE6',testo:'#111111',primario:'#C8B79A',secondario:'#6E2635'},g.colori||{}),stile:g.stile||'',wordmark:g.wordmark||'',sottotitolo:g.sottotitolo||'',layout:g.layout||'classico',peso_titoli:g.peso_titoli||'700',riferimenti:g.riferimenti||[]}}
 function fontOpts(v){return FONTS.map(function(f){return '<option'+(f===v?' selected':'')+'>'+f+'</option>'}).join('')}
 function b64Blob(b64,type){var bin=atob(b64),a=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return new Blob([a],{type:type})}
 async function uploadMedia(blob,name){
@@ -1133,6 +1153,7 @@ function renderGi(){
   var prop=(P&&I.proposta_stato==='pronta')?'<div class="agent" style="margin-top:12px"><b>Agente · proposta</b>Font: '+esc(P.font_titoli)+' / '+esc(P.font_testo)+'<br>Colori: '+['sfondo','testo','primario','secondario'].map(function(c){return '<span style="display:inline-block;width:18px;height:18px;border-radius:5px;vertical-align:middle;border:1px solid #ccc;background:'+esc(P.colori[c])+'"></span> '+esc(c)}).join(' · ')+'<br><br>'+esc(P.stile)+(P.nota?'<br><br><i>'+esc(P.nota)+'</i>':'')+'<div style="margin-top:10px"><button class="btn sm" id="gi-use">Usa questa proposta</button></div></div>':'';
   $('gi-card').innerHTML=(g.def?'':'<div class="m" style="margin:0 0 10px">Identità non ancora definita per '+esc(PR[k].name)+': carica una o più grafiche già realizzate (o ispirazioni) e chiedi all\'agente di proporla, oppure compilala a mano.</div>')+
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label class="m" style="margin:0">Font titoli<select id="gi-ft" style="width:100%">'+fontOpts(g.font_titoli)+'</select></label><label class="m" style="margin:0">Font testo<select id="gi-fx" style="width:100%">'+fontOpts(g.font_testo)+'</select></label></div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px"><label class="m" style="margin:0">Layout<select id="gi-lay" style="width:100%"><option value="classico"'+(g.layout==='classico'?' selected':'')+'>Classico</option><option value="editoriale"'+(g.layout==='editoriale'?' selected':'')+'>Editoriale (titolone, marchio, freccia)</option></select></label><label class="m" style="margin:0">Peso titoli<select id="gi-pw" style="width:100%">'+[['300','Leggero'],['400','Normale'],['500','Medio'],['700','Grassetto']].map(function(o){return '<option value="'+o[0]+'"'+(g.peso_titoli===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select></label></div>'+
     '<div style="display:flex;gap:14px;justify-content:space-between;margin:14px 0">'+col('gi-c1','Sfondo',C.sfondo)+col('gi-c2','Testo',C.testo)+col('gi-c3','Accento',C.primario)+col('gi-c4','Secondario',C.secondario)+'</div>'+
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><label class="m" style="margin:0">Wordmark<input id="gi-wm" value="'+esc(g.wordmark)+'" placeholder="es. desearq studio" style="width:100%"></label><label class="m" style="margin:0">Sottotitolo<input id="gi-sub" value="'+esc(g.sottotitolo)+'" placeholder="es. MILANO" style="width:100%"></label></div>'+
     '<label class="m" style="display:block;margin-top:10px">Stile<textarea id="gi-st" rows="4" placeholder="Com\'è il tuo stile grafico: spazi, linee, composizione, cosa evitare">'+esc(g.stile)+'</textarea></label>'+
@@ -1140,7 +1161,7 @@ function renderGi(){
     '<label class="filebtn" style="margin-top:10px"><input type="file" id="gi-up" accept="image/*" multiple>Aggiungi grafiche di riferimento<br><span class="m">post, copertine, screenshot di profili che ti piacciono</span></label>'+
     '<label class="m" style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" id="gi-web"> Cerca ispirazione anche sul web</label>'+
     '<div style="margin-top:10px"><button class="btn sm" id="gi-save">Salva identità</button> <button class="btn sm ghost" id="gi-ask">Fai proporre all\'agente</button></div><div style="margin-top:10px"><button class="btn sm" id="gi-ig">Impara dal mio profilo Instagram</button><div class="m" style="margin-top:6px">L\'agente guarda le tue ultime pubblicazioni reali e ne ricava font, colori e impaginazione.</div></div>'+st+prop;
-  var read=function(){return {font_titoli:$('gi-ft').value,font_testo:$('gi-fx').value,colori:{sfondo:$('gi-c1').value,testo:$('gi-c2').value,primario:$('gi-c3').value,secondario:$('gi-c4').value},wordmark:$('gi-wm').value.trim(),sottotitolo:$('gi-sub').value.trim(),stile:$('gi-st').value.trim()}};
+  var read=function(){return {font_titoli:$('gi-ft').value,font_testo:$('gi-fx').value,colori:{sfondo:$('gi-c1').value,testo:$('gi-c2').value,primario:$('gi-c3').value,secondario:$('gi-c4').value},wordmark:$('gi-wm').value.trim(),sottotitolo:$('gi-sub').value.trim(),layout:$('gi-lay').value,peso_titoli:$('gi-pw').value,stile:$('gi-st').value.trim()}};
   $('gi-ig').onclick=async function(){
     try{toast('Leggo le pubblicazioni del profilo…');
       var r=await fetch('/.netlify/functions/ig-stile',{method:'POST',headers:{'content-type':'application/json',Authorization:'Bearer '+AUTH.access},body:JSON.stringify({profilo:k})});var j=await r.json();if(!r.ok)throw new Error(j.error||'errore');
@@ -1155,7 +1176,7 @@ function renderGi(){
     try{await saveGi(k,Object.assign(read(),{proposta_stato:'in_corso'}));renderGi();
       await fetch('/.netlify/functions/identita-background',{method:'POST',headers:{'content-type':'application/json',Authorization:'Bearer '+AUTH.access},body:JSON.stringify({profilo:k,brand:brandOf(k),riferimenti:rif,web:$('gi-web').checked,attuale:read()})});
       pollGi(0)}catch(e){toast('Non avviata: '+e.message)}};
-  if($('gi-use'))$('gi-use').onclick=async function(){try{await saveGi(k,{font_titoli:P.font_titoli,font_testo:P.font_testo,colori:P.colori,stile:P.stile,proposta_stato:'usata'});renderGi();toast('Identità aggiornata')}catch(e){toast('Errore: '+e.message)}};
+  if($('gi-use'))$('gi-use').onclick=async function(){try{await saveGi(k,{font_titoli:P.font_titoli,font_testo:P.font_testo,colori:P.colori,stile:P.stile,layout:P.layout||'classico',peso_titoli:P.peso_titoli||'400',proposta_stato:'usata'});renderGi();toast('Identità aggiornata')}catch(e){toast('Errore: '+e.message)}};
   document.querySelectorAll('#gi-refs [data-gr]').forEach(function(b){b.onclick=async function(){var r=giOf(k).riferimenti.slice();r.splice(+b.dataset.gr,1);try{await saveGi(k,{riferimenti:r});renderGi()}catch(e){toast('Errore: '+e.message)}}});
   $('gi-up').onchange=async function(e){
     var files=Array.prototype.slice.call(e.target.files);e.target.value='';
