@@ -1112,8 +1112,15 @@ function renderGi(){
     '<h3>Grafiche di riferimento</h3><div id="gi-refs" style="display:flex;flex-wrap:wrap;gap:8px">'+g.riferimenti.map(function(r,i){return '<div style="position:relative"><img src="'+esc(r.url)+'" style="width:84px;height:104px;object-fit:cover;border-radius:10px;border:1px solid #ddd"><button class="btn sm ghost" data-gr="'+i+'" style="position:absolute;top:2px;right:2px;padding:0 7px">✕</button></div>'}).join('')+'</div>'+
     '<label class="filebtn" style="margin-top:10px"><input type="file" id="gi-up" accept="image/*" multiple>Aggiungi grafiche di riferimento<br><span class="m">post, copertine, screenshot di profili che ti piacciono</span></label>'+
     '<label class="m" style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" id="gi-web"> Cerca ispirazione anche sul web</label>'+
-    '<div style="margin-top:10px"><button class="btn sm" id="gi-save">Salva identità</button> <button class="btn sm ghost" id="gi-ask">Fai proporre all\'agente</button></div>'+st+prop;
+    '<div style="margin-top:10px"><button class="btn sm" id="gi-save">Salva identità</button> <button class="btn sm ghost" id="gi-ask">Fai proporre all\'agente</button></div><div style="margin-top:10px"><button class="btn sm" id="gi-ig">Impara dal mio profilo Instagram</button><div class="m" style="margin-top:6px">L\'agente guarda le tue ultime pubblicazioni reali e ne ricava font, colori e impaginazione.</div></div>'+st+prop;
   var read=function(){return {font_titoli:$('gi-ft').value,font_testo:$('gi-fx').value,colori:{sfondo:$('gi-c1').value,testo:$('gi-c2').value,primario:$('gi-c3').value,secondario:$('gi-c4').value},wordmark:$('gi-wm').value.trim(),sottotitolo:$('gi-sub').value.trim(),stile:$('gi-st').value.trim()}};
+  $('gi-ig').onclick=async function(){
+    try{toast('Leggo le pubblicazioni del profilo…');
+      var r=await fetch('/.netlify/functions/ig-stile',{method:'POST',headers:{'content-type':'application/json',Authorization:'Bearer '+AUTH.access},body:JSON.stringify({profilo:k})});var j=await r.json();if(!r.ok)throw new Error(j.error||'errore');
+      var man=giOf(k).riferimenti.filter(function(x){return !x.ig});var all=j.riferimenti.concat(man);
+      await saveGi(k,Object.assign(read(),{riferimenti:all,proposta_stato:'in_corso'}));renderGi();
+      await fetch('/.netlify/functions/identita-background',{method:'POST',headers:{'content-type':'application/json',Authorization:'Bearer '+AUTH.access},body:JSON.stringify({profilo:k,brand:brandOf(k),riferimenti:all.map(function(x){return x.url}),web:false,da_instagram:true,attuale:read()})});
+      pollGi(0)}catch(e){toast('Non riuscito: '+e.message)}};
   $('gi-save').onclick=async function(){try{await saveGi(k,read());renderGi();toast('Identità grafica salvata')}catch(e){toast('Non salvata: '+e.message)}};
   $('gi-ask').onclick=async function(){
     var rif=giOf(k).riferimenti.map(function(r){return r.url});
