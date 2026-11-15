@@ -9,16 +9,24 @@ export default async () => {
     try {
       const acc = ((await rpc("pulse_fn_account", { p_profilo: c.profilo })) || [])[0];
       if (!acc) throw new Error("account Instagram non collegato");
-      if (!c.media_url) throw new Error("manca l'immagine o il video da pubblicare");
+      if (!c.media_url && !(Array.isArray(c.media_urls) && c.media_urls.length)) throw new Error("manca l'immagine o il video da pubblicare");
       const caption = [c.caption, c.tags].filter(Boolean).join("\n\n");
       const f = (c.formato || "").toLowerCase();
       const isVideo = /reel|video/.test(f), isStory = /stori/.test(f);
-      if (/carosell/.test(f)) throw new Error("i caroselli non sono ancora supportati");
       const body = { access_token: acc.token };
       if (isVideo) { body.media_type = isStory ? "STORIES" : "REELS"; body.video_url = c.media_url; if (!isStory) body.caption = caption; }
       else if (isStory) { body.media_type = "STORIES"; body.image_url = c.media_url; }
       else { body.image_url = c.media_url; body.caption = caption; }
-      const cont = await post(`${GRAPH}/${acc.ig_user_id}/media`, body);
+      const urls = Array.isArray(c.media_urls) ? c.media_urls : [];
+      let cont;
+      if (/carosell|carousel/.test(f)) {
+        if (urls.length < 2) throw new Error("il carosello ha bisogno di almeno 2 immagini");
+        const figli = [];
+        for (const u of urls.slice(0, 10)) figli.push((await post(`${GRAPH}/${acc.ig_user_id}/media`, { image_url: u, is_carousel_item: true, access_token: acc.token })).id);
+        cont = await post(`${GRAPH}/${acc.ig_user_id}/media`, { media_type: "CAROUSEL", children: figli.join(","), caption, access_token: acc.token });
+      } else {
+        cont = await post(`${GRAPH}/${acc.ig_user_id}/media`, body);
+      }
       for (let i = 0; i < 20; i++) {
         const s = await get(`${GRAPH}/${cont.id}?fields=status_code&access_token=${acc.token}`);
         if (s.status_code === "FINISHED") break;

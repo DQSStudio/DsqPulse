@@ -272,6 +272,7 @@ svg text{font-family:'Outfit',sans-serif}
   <section class="view" id="v-idee">
     <h2>Le <em>idee</em> del momento</h2>
     <p class="lead">Nascono dall'analisi del mercato fatta con ricerche web reali e da ciò che l'agente sa del profilo.</p>
+    <div style="margin-bottom:12px"><button class="btn" id="idee-new">Nuove idee dall'agente</button> <span class="m" id="idee-st"></span></div>
     <div class="card" id="idee-list"></div>
   </section>
 
@@ -589,11 +590,24 @@ function renderMercato(){
   $('ht-chips').innerHTML=(dm.hashtag||[]).slice(0,8).map(function(h){return '<button class="btn sm ghost" data-ht="'+esc(h)+'" style="margin:0 6px 6px 0">'+esc(h)+'</button>'}).join('');
 }
 function renderIdee(){
-  var m=AN[cur].mercato,id=(okAn(m)&&m.dati.idee)||[];
+  var m=AN[cur].mercato,nu=AN[cur].idee,idn=(nu&&nu.stato==='pronta'&&nu.dati&&nu.dati.idee)||[],id=idn.concat((okAn(m)&&m.dati.idee)||[]);
   $('idee-list').innerHTML=id.map(function(x,i){
-    return '<div class="row"><span class="pf '+(PF[x.piattaforma]?x.piattaforma:'IG')+'">'+(PF[x.piattaforma]?x.piattaforma:'IG')+'</span><div class="grow"><div class="t">'+esc(x.titolo)+'</div><div class="m">'+esc((x.formato||'')+' · '+(x.perche||''))+'</div></div><button class="btn sm" data-i="'+i+'">Crea</button></div>'}).join('')||'<div class="m">Nessuna idea ancora: avvia l\'analisi del mercato dalla sezione Mercato.</div>';
+    var vis={grafica:'grafica',foto:'foto tue',immagine_ai:'immagine AI',video:'video'}[x.visual]||'';
+    return '<div class="row" style="flex-wrap:wrap"><span class="pf '+(PF[x.piattaforma]?x.piattaforma:'IG')+'">'+(PF[x.piattaforma]?x.piattaforma:'IG')+'</span><div class="grow"><div class="t">'+esc(x.titolo)+'</div>'+(x.gancio?'<div class="m"><b>“'+esc(x.gancio)+'”</b></div>':'')+'<div class="m">'+esc((x.formato||'')+(vis?' · '+vis:'')+' · '+(x.perche||''))+'</div></div><button class="btn sm" data-i="'+i+'">Crea</button></div>'}).join('')||'<div class="m">Nessuna idea ancora: premi "Nuove idee dall\'agente".</div>';
   document.querySelectorAll('#idee-list button').forEach(function(b){b.onclick=function(){fromIdea(id[+b.dataset.i])}});
 }
+function contestoIdee(k){
+  var A=AN[k],m=A.mercato,d=okAn(m)?m.dati:{},mi=A.miei&&A.miei.stato==='pronta'?A.miei.dati:null;
+  return {sintesi_mercato:d.sintesi||null,trend:(d.trend||[]).slice(0,6).map(function(t){return t.titolo+': '+(t.dettaglio||'')}),formati_che_funzionano:(d.formati||[]).slice(0,6).map(function(f){return f.nome+': '+(f.perche||'')}),
+    hashtag_reali:d.hashtag_reali?d.hashtag_reali.letture:null,miei_risultati:mi?{engagement_medio:mi.engagement_medio,per_tipo:mi.per_tipo,top:(mi.top||[]).slice(0,3).map(function(p){return {tipo:p.tipo,caption:(p.caption||'').slice(0,100),engagement:p.engagement}})}:null,
+    gia_fatte:ST[k].posts.slice(-15).map(function(p){return p.t})}}
+document.addEventListener('click',async function(e){
+  if(!e.target||e.target.id!=='idee-new')return;
+  var b=e.target,k=cur;b.disabled=true;$('idee-st').textContent='⏳ L\'agente sta pensando…';
+  try{var r=await fetch('/.netlify/functions/idee',{method:'POST',headers:{'content-type':'application/json',Authorization:'Bearer '+AUTH.access},body:JSON.stringify({profilo:k,brand:brandOf(k),contesto:contestoIdee(k)})});
+    var j=await r.json();if(!r.ok)throw new Error(j.error||'errore');await loadAnalisi();renderIdee();caricaCosto();$('idee-st').textContent=''}
+  catch(err){$('idee-st').textContent='⚠️ '+err.message}
+  b.disabled=false});
 function renderRis(){
   var r=AN[cur].miei,el=$('ris-body');
   if(!r||r.stato!=='pronta'){el.innerHTML='<div class="card"><div class="m">'+(r&&r.errore?'Lettura non riuscita: '+esc(r.errore):'Nessun dato. Collega Instagram (sezione Profilo) e premi "Leggi i profili approvati" in Mercato: leggo anche i tuoi numeri.')+'</div></div>';return}
@@ -704,7 +718,7 @@ function spaced(x,t,px,py,sp,align,maxW){
   t=String(t||'').toUpperCase();var w=0,i;for(i=0;i<t.length;i++)w+=x.measureText(t[i]).width+sp;w-=sp;
   var sx=align==='right'?px-w:align==='center'?px-w/2:px;x.textAlign='left';
   for(i=0;i<t.length;i++){x.fillText(t[i],sx,py);sx+=x.measureText(t[i]).width+sp}}
-async function drawGrafica(spec,g,photo,f){
+async function drawGrafica(spec,g,photo,f,pos){
   var Wd=1080,Hd=gfxH(f),C=g.colori;
   await loadFonts([g.font_titoli,g.font_testo]);
   var c=document.createElement('canvas');c.width=Wd;c.height=Hd;var x=c.getContext('2d');
@@ -715,6 +729,7 @@ async function drawGrafica(spec,g,photo,f){
   var M=96,al=spec.allineamento==='centro'?'center':'left',ax=al==='center'?Wd/2:M,maxW=Wd-2*M;
   x.textBaseline='alphabetic';x.fillStyle=tc;x.textAlign='left';x.font='500 36px "'+g.font_testo+'"';
   if(g.wordmark)x.fillText(g.wordmark,M,M+34);
+  if(pos){x.textAlign='right';x.font='500 32px "'+g.font_testo+'"';x.fillText(pos.i+' / '+pos.n,Wd-M,M+34);x.textAlign='left'}
   x.fillStyle=usaFoto?'#ffffff':C.primario;x.globalAlpha=.9;x.fillRect(M,M+70,maxW,2);x.globalAlpha=1;
   var y=Hd*0.30;x.textAlign=al;
   if(spec.template==='citazione'){x.fillStyle=C.primario;x.font='700 260px "'+g.font_titoli+'"';x.fillText('\u201C',ax,y+60);y+=150}
@@ -731,24 +746,33 @@ async function drawGrafica(spec,g,photo,f){
   if(spec.cta){x.textAlign='left';x.fillStyle=usaFoto?'#ffffff':C.secondario;x.font='600 34px "'+g.font_testo+'"';spaced(x,spec.cta,al==='center'?Wd/2:M,Hd-M-110,6,al==='center'?'center':'left')}
   x.globalAlpha=.9;x.fillStyle=usaFoto?'#ffffff':C.primario;x.fillRect(M,Hd-M-60,maxW,2);x.globalAlpha=1;
   x.fillStyle=tc;x.font='500 28px "'+g.font_testo+'"';if(g.sottotitolo)spaced(x,g.sottotitolo,M,Hd-M-8,8,'left');
+  if(pos&&pos.i<pos.n){x.textAlign='right';x.fillStyle=usaFoto?'#ffffff':C.primario;x.font='400 56px "'+g.font_testo+'"';x.fillText('\u2192',Wd-M,Hd-M-4)}
   return c.toDataURL('image/jpeg',0.92)}
 async function creaGrafica(v){
   var R=W.result;if(!R||R.loading)return;R.gfxBusy=true;renderCrea();
   try{
     var r=await fetch('/.netlify/functions/grafica',{method:'POST',headers:{'content-type':'application/json',Authorization:'Bearer '+AUTH.access},body:JSON.stringify({brand:brandOf(cur),identita:Object.assign({},ST[cur].identita,giOf(cur)),tema:R.t,hook:R.c.hook,caption:R.cap,formato:R.f,piattaforma:PF[R.p],variante:v||0})});
     var spec=await r.json();if(!r.ok)throw new Error(spec.error||'errore');
-    var url=await drawGrafica(spec,giOf(cur),R.photoImg,R.f);R.gfx={spec:spec,url:url};R.mediaUrl=null;caricaCosto();
+    if(/carosel|carousel/i.test(R.f)){
+      var sl=(spec.slides||[]).slice(0,8);if(sl.length<2)throw new Error('carosello troppo corto');
+      var urls=[];for(var qi=0;qi<sl.length;qi++){urls.push(await drawGrafica(Object.assign({allineamento:spec.allineamento},sl[qi],{foto:qi===0&&!!R.photoImg}),giOf(cur),qi===0?R.photoImg:null,R.f,{i:qi+1,n:sl.length}))}
+      R.gfx={spec:spec,urls:urls,url:urls[0]}}
+    else{var url=await drawGrafica(spec,giOf(cur),R.photoImg,R.f);R.gfx={spec:spec,url:url}}
+    R.mediaUrl=null;R.mediaUrls=null;caricaCosto();
   }catch(e){toast('Grafica non riuscita: '+e.message)}
   R.gfxBusy=false;renderCrea()}
-async function ridisegna(){var R=W.result;if(!R||!R.gfx)return;R.gfx.url=await drawGrafica(R.gfx.spec,giOf(cur),R.photoImg,R.f);R.mediaUrl=null;renderCrea()}
+async function ridisegna(){var R=W.result;if(!R||!R.gfx)return;
+  if(R.gfx.urls){var sl=R.gfx.spec.slides.slice(0,8),u=[];for(var i=0;i<sl.length;i++)u.push(await drawGrafica(Object.assign({allineamento:R.gfx.spec.allineamento},sl[i],{foto:i===0&&!!R.photoImg}),giOf(cur),i===0?R.photoImg:null,R.f,{i:i+1,n:sl.length}));R.gfx.urls=u;R.gfx.url=u[0]}
+  else R.gfx.url=await drawGrafica(R.gfx.spec,giOf(cur),R.photoImg,R.f);
+  R.mediaUrl=null;R.mediaUrls=null;renderCrea()}
 function gfxBlock(R){
   var g=giOf(cur),h='<h3>Grafica</h3>';
   if(!g.def)h+='<div class="m" style="margin-bottom:8px">L\'identità grafica di '+esc(PR[cur].name)+' non è definita: userò font e colori di base. Puoi definirla in Profilo → Identità grafica.</div>';
   if(R.gfxBusy)return h+'<div class="m">⏳ Sto disegnando la grafica…</div>';
   if(R.gfx){
-    h+='<img src="'+R.gfx.url+'" style="width:100%;max-width:340px;border-radius:12px;border:1px solid #ddd;display:block">'+(R.gfx.spec.nota?'<div class="m" style="margin-top:6px">'+esc(R.gfx.spec.nota)+'</div>':'')+
-      '<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px"><button class="btn sm" data-gx="nuova">Altra composizione</button><label class="btn sm ghost" style="cursor:pointer">'+(R.photoImg?'Cambia foto':'Aggiungi foto di sfondo')+'<input type="file" id="gx-photo" accept="image/*" style="display:none"></label>'+(R.photoImg?'<button class="btn sm ghost" data-gx="nofoto">Togli foto</button>':'')+'<a class="btn sm ghost" href="'+R.gfx.url+'" download="grafica.jpg">Scarica</a></div>'+
-      '<div class="m" style="margin-top:8px">'+(R.mediaUrl?'✓ Pronta per la pubblicazione.':'Quando programmi il contenuto, questa grafica viene usata per la pubblicazione.')+'</div>';
+    h+=(R.gfx.urls?'<div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:6px">'+R.gfx.urls.map(function(u){return '<img src="'+u+'" style="height:300px;border-radius:10px;border:1px solid #ddd;flex:none">'}).join('')+'</div><div class="m">'+R.gfx.urls.length+' slide · tieni premuta un\'immagine per salvarla</div>':'<img src="'+R.gfx.url+'" style="width:100%;max-width:340px;border-radius:12px;border:1px solid #ddd;display:block">')+(R.gfx.spec.nota?'<div class="m" style="margin-top:6px">'+esc(R.gfx.spec.nota)+'</div>':'')+
+      '<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px"><button class="btn sm" data-gx="nuova">Altra composizione</button><label class="btn sm ghost" style="cursor:pointer">'+(R.photoImg?'Cambia foto':'Aggiungi foto di sfondo')+'<input type="file" id="gx-photo" accept="image/*" style="display:none"></label>'+(R.photoImg?'<button class="btn sm ghost" data-gx="nofoto">Togli foto</button>':'')+(R.gfx.urls?'':'<a class="btn sm ghost" href="'+R.gfx.url+'" download="grafica.jpg">Scarica</a>')+'</div>'+
+      '<div class="m" style="margin-top:8px">'+((R.mediaUrl||R.mediaUrls)?'✓ Pronta per la pubblicazione.':'Quando programmi il contenuto, questa grafica viene usata per la pubblicazione.')+'</div>';
   }else h+='<div class="m" style="margin-bottom:8px">L\'agente disegna una grafica con font, colori e stile del profilo.</div><button class="btn sm" data-gx="nuova">Crea la grafica</button>';
   return h}
 document.addEventListener('click',function(e){var a=e.target&&e.target.dataset&&e.target.dataset.gx;if(!a)return;var R=W.result;if(!R)return;
@@ -757,6 +781,7 @@ document.addEventListener('click',function(e){var a=e.target&&e.target.dataset&&
 document.addEventListener('change',function(e){if(!e.target||e.target.id!=='gx-photo')return;var f=e.target.files[0];if(!f)return;
   var u=URL.createObjectURL(f),im=new Image();im.onload=function(){W.result.photoImg=im;W.result.gfx.spec.foto=true;ridisegna()};im.onerror=function(){toast('Foto non leggibile')};im.src=u});
 async function uploadGfx(){var R=W.result;if(!R||!R.gfx||R.mediaUrl)return;
+  if(R.gfx.urls){var us=[];for(var i=0;i<R.gfx.urls.length;i++)us.push(await uploadMedia(b64Blob(R.gfx.urls[i].split(',')[1],'image/jpeg'),cur+'/car-'+Date.now()+'-'+i+'.jpg'));R.mediaUrls=us;R.mediaUrl=us[0];return}
   R.mediaUrl=await uploadMedia(b64Blob(R.gfx.url.split(',')[1],'image/jpeg'),cur+'/post-'+Date.now()+'.jpg')}
 function renderCrea(){
   var R=W.result,b=$('crea-body');
@@ -873,7 +898,7 @@ async function recommend(){
 async function confirmWhen(w){
   W.when=w;W.confirmed=true;
   var np={id:cur+(nid++),d:w.d,h:w.h,p:W.p,f:W.f,t:W.result.t,st:'programmato'};ST[cur].posts.push(np);
-  try{try{await uploadGfx()}catch(e){toast('Grafica non caricata: '+e.message)}var rc=W.result.c||{};var rr=await sbq('pulse_contenuti',{method:'POST',body:{org_id:ORG,profilo:cur,media_url:W.result.mediaUrl||null,piattaforma:W.p,formato:W.f,tema:W.result.t,hook:rc.hook||null,scene:rc.scene||[],caption:W.result.cap||rc.cap||null,tags:rc.tags||null,stato:'programmato',quando:toDT(w.d,w.h)}});np.id=rr[0].id}catch(e){toast('Salvataggio non riuscito: '+e.message)}
+  try{try{await uploadGfx()}catch(e){toast('Grafica non caricata: '+e.message)}var rc=W.result.c||{};var rr=await sbq('pulse_contenuti',{method:'POST',body:{org_id:ORG,profilo:cur,media_url:W.result.mediaUrl||null,media_urls:W.result.mediaUrls||[],piattaforma:W.p,formato:W.f,tema:W.result.t,hook:rc.hook||null,scene:rc.scene||[],caption:W.result.cap||rc.cap||null,tags:rc.tags||null,stato:'programmato',quando:toDT(w.d,w.h)}});np.id=rr[0].id}catch(e){toast('Salvataggio non riuscito: '+e.message)}
   renderAll();confetti(130);
   await say('Fatto! <b>'+esc(W.result.t)+'</b> è programmato per '+fd(w.d)+' alle '+w.h+' su '+PF[W.p]+'. Lo trovi nel calendario.');
   after();
@@ -891,7 +916,7 @@ async function after2(){await say('Vuoi creare altro?');setQuick([{label:'Crea u
 function fromIdea(x){
   var f=(x.formato||'').toLowerCase(),type=/reel|video|short/.test(f)?'video':/carosel|carousel/.test(f)?'carousel':/stori/.test(f)?'storia':/pin/.test(f)?'pin':'post';
   var pf=PF[x.piattaforma]?x.piattaforma:'IG';
-  W={type:type,p:pf,f:x.formato||'Post',tema:null,temaTxt:x.titolo};
+  W={type:type,p:pf,f:(type==='carousel'?'Carousel':type==='storia'?'Storia':type==='pin'?'Pin':(type==='video'?(pf==='IG'?'Reel':pf==='YT'?'Short':'Video breve'):'Post')),tema:null,temaTxt:x.titolo};
   $('chat').classList.add('open');
   addMsg('me','Voglio creare: '+esc(x.titolo));
   setQuick([]);
