@@ -259,6 +259,7 @@ svg text{font-family:'Outfit',sans-serif}
       <div><h3>Formati che funzionano</h3><div class="card" id="formats"></div></div>
       <div><h3>Trend e hashtag</h3><div class="card" id="trends"></div></div>
     </div>
+    <div id="ht-real" style="margin-top:16px"></div>
     <h3>Cerca un hashtag su Instagram</h3>
     <div class="card">
       <div class="m" style="margin:0 0 8px">Vedi i post più popolari e più recenti pubblicati con quell'hashtag (dati letti da Instagram, limite Meta: 30 hashtag diversi a settimana).</div>
@@ -581,6 +582,8 @@ function renderMercato(){
   var dm=okAn(m)?m.dati:{};
   $('formats').innerHTML=(dm.formati||[]).map(function(r){return '<div class="row"><div class="grow"><div class="t">'+esc(r.nome)+'</div><div class="m">'+esc(r.perche||'')+'</div></div></div>'}).join('')||'<div class="m">Dopo l\'analisi.</div>';
   $('trends').innerHTML=(dm.trend||[]).map(function(r){return '<div class="row"><div class="grow"><div class="t">'+esc(r.titolo)+'</div><div class="m">'+esc(r.dettaglio||'')+(r.fonte?' · <a href="'+esc(r.fonte)+'" target="_blank" rel="noopener">fonte</a>':'')+'</div></div></div>'}).join('')+((dm.hashtag||[]).length?'<div class="m" style="margin-top:8px">'+dm.hashtag.map(esc).join(' ')+'</div>':'')||'<div class="m">Dopo l\'analisi.</div>';
+  var hr=dm.hashtag_reali;
+  $('ht-real').innerHTML=hr?'<h3 style="margin-top:0">Cosa dicono i post reali su Instagram</h3>'+(hr.letture?'<div class="agent"><b>Agente · dai post degli hashtag</b>'+esc(hr.letture)+'</div>':'')+hr.hashtag.map(function(h){var tp=Object.keys(h.tipi).map(function(k){return k+' '+h.tipi[k]}).join(', ');return '<div class="row"><span class="pf IG">IG</span><div class="grow"><div class="t">#'+esc(h.tag)+' · like medio '+h.like_medio+' · commenti '+h.commenti_medi+'</div><div class="m">'+esc(tp)+((h.top[0]&&h.top[0].url)?' · <a href="'+esc(h.top[0].url)+'" target="_blank" rel="noopener">post migliore ↗</a>':'')+'</div></div></div>'}).join(''):(dm.hashtag_errore?'<div class="m">Hashtag non letti da Instagram: '+esc(dm.hashtag_errore)+'</div>':'');
   $('ht-chips').innerHTML=(dm.hashtag||[]).slice(0,8).map(function(h){return '<button class="btn sm ghost" data-ht="'+esc(h)+'" style="margin:0 6px 6px 0">'+esc(h)+'</button>'}).join('');
 }
 function renderIdee(){

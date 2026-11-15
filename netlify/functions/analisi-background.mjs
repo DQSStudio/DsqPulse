@@ -1,5 +1,5 @@
 // Analisi di mercato con ricerca web reale (Claude + web search). Salva risultato e profili proposti.
-import { verificaProposti } from "./_monitor.mjs";
+import { verificaProposti, analisiHashtag } from "./_monitor.mjs";
 import { ORG, rpc, userIsMember, logUso, pulisci, getConoscenza } from "./_lib.mjs";
 const FOCUS = {
   studio: "Comunicazione di uno STUDIO di interior design e architettura rivolta a CLIENTI PRIVATI e famiglie che ristrutturano a Milano e in Italia. Cerca contenuti, formati, hashtag e profili del mondo interior design, ristrutturazioni e architettura residenziale (studi, designer, creator di casa).",
@@ -44,6 +44,7 @@ Rispondi SOLO con JSON valido: {"sintesi":"4-6 righe","formati":[{"nome":"","per
       dati = estrai((j2.content || []).map((b) => b.text || "").join(""));
     }
     dati = pulisci(dati);
+    try { dati.hashtag_reali = await analisiHashtag(profilo, dati.hashtag || []); } catch (e) { dati.hashtag_errore = String(e.message).slice(0, 200); }
     await set("pronta", dati, null);
     for (const p of dati.profili || []) if (p.handle) await rpc("pulse_fn_seguiti_add", { p_org: ORG, p_profilo: profilo, p_handle: p.handle, p_perche: p.perche || null, p_fonte: p.fonte || null });
     try { await verificaProposti(profilo); } catch {}
