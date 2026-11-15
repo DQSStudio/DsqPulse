@@ -23,7 +23,28 @@ async function claude(prompt, max = 1500) {
   const r = await fetch("https://api.anthropic.com/v1/messages", { method: "POST", headers: { "x-api-key": process.env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" }, body: JSON.stringify({ model: MODEL, max_tokens: max, messages: [{ role: "user", content: prompt }] }) });
   const j = await r.json(); await logUso("monitor", MODEL, j.usage); return pulisci((j.content || []).map((x) => x.text || "").join(""));
 }
+// Verifica su Instagram i profili proposti: scarta quelli inesistenti/non professionali, salva metriche reali degli altri.
+export async function verificaProposti(profilo) {
+  const acc = ((await rpc("pulse_fn_account", { p_profilo: profilo })) || [])[0];
+  if (!acc) return { verificati: 0, scartati: 0, nota: "Instagram non collegato" };
+  const list = (await rpc("pulse_fn_seguiti_proposti", { p_profilo: profilo })) || [];
+  let ok = 0, no = 0;
+  for (const s of list) {
+    try {
+      const r = await g(`${GRAPH}/${acc.ig_user_id}?fields=business_discovery.username(${encodeURIComponent(s.handle)}){username,followers_count,media_count,media.limit(40){${FIELDS}}}&access_token=${acc.token}`);
+      const bd = r.business_discovery;
+      const m = riassumi(bd.followers_count, bd.media?.data || []);
+      await rpc("pulse_fn_seguiti_verifica", { p_id: s.id, p_metriche: m, p_errore: null });
+      ok++;
+    } catch (e) {
+      await rpc("pulse_fn_seguiti_verifica", { p_id: s.id, p_metriche: null, p_errore: "Non leggibile su Instagram: " + String(e.message).slice(0, 150) });
+      no++;
+    }
+  }
+  return { verificati: ok, scartati: no };
+}
 export async function runMonitor(profilo) {
+  await verificaProposti(profilo);
   const acc = ((await rpc("pulse_fn_account", { p_profilo: profilo })) || [])[0];
   if (!acc) { await rpc("pulse_fn_analisi_set", { p_org: ORG, p_profilo: profilo, p_tipo: "top", p_stato: "errore", p_dati: null, p_errore: "Instagram non collegato" }); return; }
   // dati propri

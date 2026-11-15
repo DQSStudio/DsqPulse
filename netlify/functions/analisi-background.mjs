@@ -1,5 +1,6 @@
 // Analisi di mercato con ricerca web reale (Claude + web search). Salva risultato e profili proposti.
 import { readFileSync } from "node:fs";
+import { verificaProposti } from "./_monitor.mjs";
 import { ORG, rpc, userIsMember, logUso, pulisci } from "./_lib.mjs";
 const KB = { studio: readFileSync(new URL("./brand-studio.txt", import.meta.url), "utf8"), lab: readFileSync(new URL("./brand-lab.txt", import.meta.url), "utf8") };
 const FOCUS = {
@@ -47,6 +48,7 @@ Rispondi SOLO con JSON valido: {"sintesi":"4-6 righe","formati":[{"nome":"","per
     dati = pulisci(dati);
     await set("pronta", dati, null);
     for (const p of dati.profili || []) if (p.handle) await rpc("pulse_fn_seguiti_add", { p_org: ORG, p_profilo: profilo, p_handle: p.handle, p_perche: p.perche || null, p_fonte: p.fonte || null });
+    try { await verificaProposti(profilo); } catch {}
   } catch (e) { await set("errore", null, String(e.message).slice(0, 300)); }
   return new Response("ok");
 };

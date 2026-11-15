@@ -1,0 +1,1 @@
+-- pulse_fn_seguiti_proposti / pulse_fn_seguiti_verifica: applicate via MCP (verifica dei profili proposti su Instagram)
