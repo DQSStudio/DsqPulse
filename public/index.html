@@ -155,8 +155,9 @@ textarea:focus{border-color:var(--vio);box-shadow:0 0 0 3px rgba(110,38,53,.15)}
 .filebtn input{display:none}
 
 /* anteprima */
-.stage{display:grid;gap:22px;grid-template-columns:1fr}
-@media(min-width:1100px){.stage{grid-template-columns:300px 1fr;align-items:start}}
+.stage{display:grid;gap:22px;grid-template-columns:minmax(0,1fr)}
+.stage>*{min-width:0}
+@media(min-width:1100px){.stage{grid-template-columns:300px minmax(0,1fr);align-items:start}}
 .phonewrap{display:flex;justify-content:center}
 .phone{position:relative;width:268px;border-radius:38px;background:#0c0a1d;padding:9px;box-shadow:0 30px 60px -24px rgba(60,15,30,.7);animation:fade .6s both}
 .screen{position:relative;border-radius:30px;overflow:hidden;color:#fff;display:flex;flex-direction:column;justify-content:flex-end;padding:18px 16px}
@@ -768,7 +769,7 @@ async function ridisegna(){var R=W.result;if(!R||!R.gfx||R.gfx.ai)return;
 async function falCall(body){var r=await fetch('/.netlify/functions/fal',{method:'POST',headers:{'content-type':'application/json',Authorization:'Bearer '+AUTH.access},body:JSON.stringify(body)});var j=await r.json().catch(function(){return{}});if(!r.ok)throw new Error(j.error||('errore '+r.status));return j}
 async function falAspetta(st,tipo,max){for(var i=0;i<max;i++){await new Promise(function(r){setTimeout(r,4000)});var x=await falCall({azione:'stato',status_url:st.status_url,response_url:st.response_url,tipo:tipo});if(x.stato==='pronto')return x;if(x.stato==='errore')throw new Error(x.error||'generazione non riuscita')}throw new Error('tempo scaduto, riprova')}
 async function aiImmagine(){var R=W.result;if(!R||R.aiBusy)return;var inp=document.getElementById('gx-rich');var rich=inp?inp.value:R.rich||'';R.rich=rich;R.aiBusy='Sto creando l\'immagine… (circa 20 secondi)';renderCrea();
-  try{var st=await falCall({azione:'immagine',brand:brandOf(cur),identita:Object.assign({},ST[cur].identita,giOf(cur)),tema:R.t,richiesta:rich,formato:R.f,piattaforma:PF[R.p]});
+  try{var st=await falCall({azione:'immagine',brand:brandOf(cur),identita:Object.assign({},ST[cur].identita,giOf(cur)),profilo:cur,tema:R.t,hook:(R.c||{}).hook||'',scene:(R.c||{}).scene||[],caption:R.cap||'',richiesta:rich,formato:R.f,piattaforma:PF[R.p]});
     var x=await falAspetta(st,'immagine',30);
     var im=new Image();await new Promise(function(ok,ko){im.onload=ok;im.onerror=function(){ko(new Error('immagine non leggibile'))};im.src=x.data});
     R.aiImg=im;R.photoImg=im;R.video=null;R.mediaUrl=null;R.mediaUrls=null;R.gfx={spec:{nota:'Immagine AI: '+st.prompt},url:x.data,ai:true};caricaCosto()}
